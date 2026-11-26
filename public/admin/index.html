@@ -120,7 +120,7 @@ form button{width:100%}
 .status-pill{display:inline-block;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:bold;margin:7px 0}
 .status-free{background:#e4f4e8;color:#236b39}.status-booked{background:#fff0d8;color:#895500}.status-occupied{background:#f9dfdf;color:#9b2929}.status-cancelled{background:#eee;color:#666}
 .room{border-radius:13px;padding:13px;border:1px solid #eee2d5}.room-free{background:#f0f8f1;border-color:#cce6d0}.room-booked{background:#fff8eb;border-color:#f0d9a8}.room-occupied{background:#fff0f0;border-color:#efcaca}
-.action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.approve{background:#e4f4e8;color:#236b39}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
+.action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.approve{background:#e4f4e8;color:#236b39}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}.payment-history{margin:7px 0;padding:8px 10px;background:#f0f8f1;border-right:3px solid #26966c;border-radius:8px;line-height:1.9}
 .report-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}.report-kpi{background:#f5eee5;padding:13px;border-radius:12px;min-width:0}.report-kpi small{display:block;color:#806d5d;font-size:11px}.report-kpi strong{display:block;color:#80502e;font-size:19px;margin-top:7px;overflow-wrap:anywhere}.report-chart-row{margin:13px 0}.report-chart-head{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:6px}.report-track{height:10px;background:#eee5da;border-radius:20px;overflow:hidden}.report-fill{height:100%;background:#26966c;border-radius:20px}.report-table-wrap{overflow-x:auto}.report-table{width:100%;border-collapse:collapse;font-size:12px;min-width:490px}.report-table th,.report-table td{padding:10px 8px;border-bottom:1px solid #eee2d5;text-align:right;white-space:nowrap}.report-table th{color:#806d5d;background:#faf7f2}.report-note{font-size:11px;color:#887969;line-height:1.8;margin-top:10px}
 .daily-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}.daily-kpi{background:#f5eee5;padding:12px;border-radius:12px}.daily-kpi small{display:block;color:#806d5d;font-size:11px}.daily-kpi strong{display:block;color:#80502e;font-size:22px;margin-top:5px}.daily-list{border-top:1px solid #eee2d5;padding:10px 0}.daily-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0e8df;font-size:12px}.daily-row button{padding:8px 10px;font-size:11px;white-space:nowrap}.price-rule{border:1px solid #eee2d5;border-radius:12px;padding:12px;margin:9px 0}.price-rule-head{display:flex;justify-content:space-between;gap:8px;align-items:center}.price-rule button{padding:7px 10px;font-size:11px}.price-preview{background:#f0f8f1;color:#236b39;border-radius:10px;padding:10px;font-size:12px;margin:8px 0}.rating-stars{color:#b27a25;letter-spacing:2px}.backup-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}@media(max-width:520px){.daily-grid{grid-template-columns:1fr}.backup-actions{grid-template-columns:1fr}}
 
@@ -695,7 +695,7 @@ async function loadReservations(){
  recentEl.textContent='در حال دریافت اطلاعات...';
  listEl.textContent='در حال دریافت اطلاعات...';
  const {data,error}=await db.from('reservations')
-  .select('*, rooms(name), guests(full_name, phone)')
+  .select('*, rooms(name), guests(full_name, phone), reservation_payments(id, amount, payment_method, status, confirmed_at)')
   .order('created_at',{ascending:false});
  if(error){
   console.error(error);
@@ -766,15 +766,21 @@ function showCalendarReservation(id){
 function reservationCard(r,actions=true){
  const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
  const remaining=Math.max(0,Number(r.total_amount||0)-Number(r.paid_amount||0));
+ const paymentHistory=(r.reservation_payments||[]).slice().sort((a,b)=>String(b.confirmed_at||'').localeCompare(String(a.confirmed_at||''))).map(p=>{
+  const when=p.confirmed_at?new Date(p.confirmed_at).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'}):'زمان ثبت نامشخص';
+  return '<div class="muted">واریزی تأییدشده: '+Number(p.amount||0).toLocaleString('fa-IR')+' تومان · '+escapeHtml(when)+'</div>';
+ }).join('');
  return `<div class="reservation">
   <b>${escapeHtml(r.guests?.full_name||'مهمان')}</b>
   <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
   <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
   <div class="muted">منبع رزرو: ${escapeHtml(r.booking_source||'ثبت نشده')}</div>
   <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
+  ${paymentHistory?`<div class="payment-history">${paymentHistory}</div>`:''}
   ${(r.status==='pending'||(actions&&r.status!=='cancelled'))?`<div class="action-row">
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
-   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">تأیید و ثبت واریزی</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+   ${actions&&r.status!=='cancelled'&&remaining>0?`<button class="secondary" onclick="addPayment('${r.id}')">تأیید و ثبت واریزی</button>`:''}
    ${actions&&r.status!=='cancelled'?`<button class="secondary" onclick="printInvoice('${r.id}')">فاکتور / رسید</button>`:''}
    ${actions&&['confirmed','checked_in','checked_out'].includes(r.status)?`<button class="secondary" onclick="prepareWelcomeMessage('${r.id}')">آماده‌سازی پیامک خوشامدگویی</button>`:''}
    ${actions&&r.status!=='cancelled'&&r.review_token&&(r.status==='checked_out'||r.check_out<todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
@@ -1151,13 +1157,14 @@ async function addPayment(id){
  const amount=Number(amountText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,،\s]/g,''));
  if(!Number.isFinite(amount)||amount<=0){alert('مبلغ واریزی معتبر نیست.');return;}
  if(amount>remaining){alert('مبلغ واردشده از مانده حساب بیشتر است.');return;}
- const approve=confirm('آیا واریز به حساب بانک مهر را بررسی کرده‌اید و دریافت مبلغ '+amount.toLocaleString('fa-IR')+' تومان را تأیید می‌کنید؟\n\nبا تأیید، مبلغ به پرداختی این رزرو اضافه می‌شود.');
+ const approve=confirm('آیا واریز به حساب بانک مهر را بررسی کرده‌اید و دریافت مبلغ '+amount.toLocaleString('fa-IR')+' تومان را تأیید می‌کنید؟\n\nبا تأیید، تراکنش ثبت و مجموع پرداختی به‌روزرسانی می‌شود.');
  if(!approve)return;
- const newPaid=Number(r.paid_amount||0)+amount;
- const {data,error}=await db.from('reservations').update({paid_amount:newPaid}).eq('id',id).select('id,paid_amount').maybeSingle();
- if(error){alert('خطا در ثبت واریزی: '+error.message);return;}
- if(!data){alert('واریزی ثبت نشد؛ رزرو پیدا نشد یا دسترسی کافی ندارید.');return;}
- await loadReservations();alert('واریزی با موفقیت تأیید و ثبت شد.\nمجموع پرداختی: '+newPaid.toLocaleString('fa-IR')+' تومان\nمانده حساب: '+(Number(r.total_amount)-newPaid).toLocaleString('fa-IR')+' تومان');
+ const {data,error}=await db.rpc('confirm_bank_transfer_payment',{p_reservation_id:id,p_amount:amount});
+ if(error){alert('ثبت واریزی انجام نشد. اگر این قابلیت تازه نصب شده، ابتدا فایل SQL پرداخت بانکی را در Supabase اجرا کنید.\n\n'+error.message);return;}
+ const result=Array.isArray(data)?data[0]:data;
+ if(!result){alert('پاسخ ثبت واریزی معتبر نیست.');return;}
+ await loadReservations();
+ alert('واریزی با موفقیت تأیید و ثبت شد.\nمجموع پرداختی: '+Number(result.paid_amount).toLocaleString('fa-IR')+' تومان\nمانده حساب: '+Number(result.remaining_amount).toLocaleString('fa-IR')+' تومان');
 }
 
 document.getElementById('bookingForm').addEventListener('submit',async e=>{
