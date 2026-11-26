@@ -43,6 +43,8 @@ CREATE POLICY "Authenticated admins manage room pricing rules"
   FOR ALL TO authenticated
   USING (true)
   WITH CHECK (true);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.room_pricing_rules TO authenticated;
+GRANT ALL ON public.room_pricing_rules TO service_role;
 
 -- 3) بازخورد مهمانان؛ هر رزرو فقط یک نظر ثبت می‌کند
 CREATE TABLE IF NOT EXISTS public.guest_reviews (
@@ -65,5 +67,7 @@ CREATE POLICY "Authenticated admins read guest reviews"
   ON public.guest_reviews
   FOR SELECT TO authenticated
   USING (true);
+GRANT SELECT ON public.guest_reviews TO authenticated;
+GRANT ALL ON public.guest_reviews TO service_role;
 
 -- نوشتن نظر مهمان فقط از طریق Worker سمت سرور و service role انجام می‌شود.
