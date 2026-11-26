@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#56351f">
+<title>بوم‌گردی مهران</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f7f3ec;color:#35271e;font-family:Tahoma,Arial,sans-serif}
+header{background:#56351f;color:white;padding:22px 18px;border-radius:0 0 24px 24px}
+header h1{margin:0 0 8px;font-size:23px}
+header p{margin:0;color:#ead8c3;font-size:12px}
+main{padding:18px;max-width:850px;margin:auto}
+.card{background:white;border-radius:17px;padding:17px;margin-bottom:15px;box-shadow:0 3px 15px #43250b0b}
+h2{font-size:17px;margin:0 0 15px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{background:#f5eee5;padding:15px;border-radius:13px}
+.stat strong{display:block;font-size:25px;color:#86542e;margin-top:8px}
+.rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.room{border:1px solid #eee2d5;border-radius:13px;padding:13px}
+.room b{display:block;margin-bottom:9px}
+.room small{color:#806d5d}
+button{border:0;border-radius:10px;background:#80502e;color:white;padding:13px 17px;font-size:14px;cursor:pointer}
+button.secondary{background:#eee5da;color:#54351f}
+input,select,textarea{width:100%;padding:13px;border:1px solid #ddd1c3;border-radius:10px;margin:7px 0 13px;font-family:inherit;font-size:14px;background:white}
+label{font-size:12px;color:#685747}
+form button{width:100%}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}
+.nav button{flex:1;min-width:100px}
+.reservation{border-bottom:1px solid #eee;padding:13px 0;font-size:13px}
+.muted{color:#887969;font-size:12px}
+.hidden{display:none!important}
+#message{font-size:13px;color:#9b3b25;margin-top:10px}
+@media(max-width:400px){.rooms{grid-template-columns:1fr}}
+.jalali-overlay{
+ position:fixed;
+ inset:0;
+ background:#0008;
+ z-index:99999;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ padding:15px;
+}
+.jalali-modal{
+ background:white;
+ width:100%;
+ max-width:430px;
+ border-radius:20px;
+ padding:20px;
+ box-shadow:0 10px 40px #0003;
+}
+.jalali-title{
+ font-size:18px;
+ font-weight:bold;
+ margin-bottom:20px;
+}
+.jalali-wheels{
+ display:flex;
+ direction:rtl;
+ gap:8px;
+}
+.wheel-wrap{
+ flex:1;
+ min-width:0;
+ text-align:center;
+}
+.wheel-wrap small{
+ display:block;
+ margin-bottom:10px;
+ color:#806d5d;
+}
+.wheel{
+ height:220px;
+ overflow-y:auto;
+ scroll-snap-type:y mandatory;
+ scrollbar-width:none;
+ border-top:1px solid #ddd1c3;
+ border-bottom:1px solid #ddd1c3;
+}
+.wheel::-webkit-scrollbar{
+ display:none;
+}
+.wheel-spacer{
+ height:88px;
+}
+.wheel-item{
+ display:block;
+ width:100%;
+ height:44px;
+ padding:0;
+ border-radius:0;
+ background:white;
+ color:#806d5d;
+ scroll-snap-align:center;
+ font-size:16px;
+}
+.wheel-item.active{
+ background:#f5eee5;
+ color:#80502e;
+ font-weight:bold;
+}
+.picker-actions{
+ display:flex;
+ gap:10px;
+ margin-top:20px;
+}
+.picker-actions button{
+ flex:1;
+}
+#pickerError{
+ color:#b43b2b;
+ font-size:12px;
+ margin-top:10px;
+}
+
+.status-pill{display:inline-block;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:bold;margin:7px 0}
+.status-free{background:#e4f4e8;color:#236b39}.status-booked{background:#fff0d8;color:#895500}.status-occupied{background:#f9dfdf;color:#9b2929}.status-cancelled{background:#eee;color:#666}
+.room{border-radius:13px;padding:13px;border:1px solid #eee2d5}.room-free{background:#f0f8f1;border-color:#cce6d0}.room-booked{background:#fff8eb;border-color:#f0d9a8}.room-occupied{background:#fff0f0;border-color:#efcaca}
+.action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
+
+.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 14px;flex-wrap:wrap}
+.calendar-toolbar button{padding:10px 13px}
+.calendar-title{font-weight:bold;text-align:center;flex:1;min-width:130px}
+.calendar-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:#66513f;margin:10px 0 14px}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:4px;vertical-align:middle}
+.calendar-scroll{overflow-x:auto;border:1px solid #eee2d5;border-radius:12px;background:#fff;direction:rtl}
+.calendar-grid{border-collapse:separate;border-spacing:2px;min-width:900px;width:100%;font-size:11px}
+.calendar-grid th,.calendar-grid td{padding:7px 4px;text-align:center;min-width:27px;border-radius:5px}
+.calendar-grid thead th{background:#f5eee5;position:sticky;top:0}
+.calendar-grid .room-name{position:sticky;right:0;background:#fff;min-width:105px;text-align:right;font-weight:bold;z-index:2}
+.calendar-grid .day-today{outline:2px solid #80502e;outline-offset:-2px}
+.calendar-cell{height:31px;background:#f7f3ec;color:#b7aa9c}
+.calendar-cell.pending{background:#fff0d8;color:#895500}
+.calendar-cell.confirmed{background:#dcebdc;color:#236b39}
+.calendar-cell.checked_in{background:#f5dede;color:#9b2929}
+.calendar-cell.checked_out{background:#e9e4ef;color:#59466f}
+.calendar-cell .cell-mark{font-weight:bold;font-size:12px}
+.calendar-note{font-size:11px;color:#806d5d;margin-top:10px;line-height:1.8}
+</style>
+</head>
+<body>
+
+<header>
+<h1>بوم‌گردی مهران</h1>
+<p>سامانه مدیریت اقامت و رزرو اتاق‌ها</p>
+</header>
+
+<main>
+<section id="login" class="card">
+<h2>ورود مدیر مجموعه</h2>
+<label>ایمیل مدیر</label>
+<input id="email" type="email" placeholder="ایمیل حساب مدیر">
+<label>رمز عبور</label>
+<input id="password" type="password" placeholder="رمز عبور">
+<button onclick="login()">ورود به پنل مدیریت</button>
+<div id="message"></div>
+</section>
+
+<section id="dashboard" class="hidden">
+<div class="nav">
+<button onclick="showTab('home')">داشبورد</button>
+<button onclick="showTab('rooms')">اتاق‌ها</button>
+<button onclick="showTab('booking')">رزرو جدید</button>
+<button onclick="showTab('list')">رزروها</button>
+<button onclick="showTab('calendar')">تقویم اشغال</button>
+<button class="secondary" onclick="logout()">خروج</button>
+</div>
+
+<div id="home">
+<div class="card">
+<h2>خوش آمدید 👋</h2>
+<p class="muted">مدیریت بوم‌گردی مهران</p>
+<div class="stats">
+<div class="stat">تعداد اتاق‌ها<strong>۹</strong></div>
+<div class="stat">رزروهای ثبت‌شده<strong id="total">۰</strong></div>
+</div>
+</div>
+<div class="card">
+<h2>آخرین رزروها</h2>
+<div id="recent" class="muted">در حال دریافت اطلاعات...</div>
+</div>
+</div>
+
+<div id="rooms" class="hidden">
+<div class="card">
+<h2>وضعیت اتاق‌های مجموعه</h2>
+<p class="muted">سبز: خالی | زرد: دارای رزرو امروز/آینده | قرمز: در حال اقامت</p>
+<div id="roomList" class="rooms"></div>
+</div>
+</div>
+
+<div id="booking" class="hidden">
+<div class="card">
+<h2>ثبت رزرو جدید</h2>
+<form id="bookingForm">
+<label>نام و نام خانوادگی مهمان</label>
+<input id="guestName" required placeholder="نام مهمان">
+<label>شماره موبایل</label>
+<input id="phone" required inputmode="tel" placeholder="09xxxxxxxxx">
+<label>انتخاب اتاق</label>
+<select id="roomSelect" required></select>
+<label>تاریخ ورود</label>
+<input id="checkinDisplay" type="text" placeholder="انتخاب تاریخ ورود" readonly onclick="openJalaliPicker('checkin')">
+<input id="checkin" type="hidden" required>
+<label>تاریخ خروج</label>
+<input id="checkoutDisplay" type="text" placeholder="انتخاب تاریخ خروج" readonly onclick="openJalaliPicker('checkout')">
+<input id="checkout" type="hidden" required>
+<label>تعداد بزرگسال</label>
+<input id="adults" type="number" min="1" value="1" required>
+<label>تعداد کودک</label>
+<input id="children" type="number" min="0" value="0">
+<label>تعداد نوزاد</label>
+<input id="infants" type="number" min="0" value="0">
+<label>مبلغ کل (تومان)</label>
+<input id="amount" type="text" inputmode="numeric" value="0">
+<label>مبلغ بیعانه (تومان)</label>
+<input id="deposit" type="text" inputmode="numeric" value="0">
+<label>توضیحات</label>
+<textarea id="notes" rows="3" placeholder="توضیحات رزرو..."></textarea>
+<button type="submit">ثبت رزرو</button>
+<div id="bookingMessage"></div>
+</form>
+</div>
+</div>
+
+<div id="list" class="hidden">
+<div class="card">
+<h2>فهرست رزروها</h2>
+<input id="reservationSearch" class="search-box" type="search" placeholder="جست‌وجو نام، موبایل یا اتاق..." oninput="renderReservationList()">
+<div id="reservationList"></div>
+</div>
+</div>
+
+<div id="calendar" class="hidden">
+ <div class="card">
+  <h2>تقویم اشغال اتاق‌ها</h2>
+  <div class="calendar-toolbar">
+   <button class="secondary" onclick="changeCalendarMonth(-1)">ماه قبل</button>
+   <div id="calendarTitle" class="calendar-title">تقویم شمسی</div>
+   <button class="secondary" onclick="changeCalendarMonth(1)">ماه بعد</button>
+   <button onclick="goCalendarToday()">امروز</button>
+  </div>
+  <div class="calendar-legend">
+   <span><i class="legend-dot" style="background:#fff0d8"></i>در انتظار تأیید</span>
+   <span><i class="legend-dot" style="background:#dcebdc"></i>تأیید شده</span>
+   <span><i class="legend-dot" style="background:#f5dede"></i>مهمان مقیم</span>
+   <span><i class="legend-dot" style="background:#e9e4ef"></i>تسویه و خروج</span>
+   <span><i class="legend-dot" style="background:#f7f3ec"></i>خالی</span>
+  </div>
+  <div id="calendarGrid" class="calendar-scroll"></div>
+  <p class="calendar-note">هر خانه رنگی نشان‌دهنده اشغال اتاق در آن روز است. تاریخ خروج روزِ خالی‌شدن اتاق محسوب می‌شود. برای دیدن نام مهمان و جزئیات رزرو، روی خانه رنگی لمس کنید.</p>
+ </div>
+</div>
+</section>
+</main>
+<div id="editModal" class="jalali-overlay hidden" onclick="if(event.target===this)closeEditModal()">
+ <div class="jalali-modal edit-modal">
+  <div class="jalali-title">ویرایش رزرو</div>
+  <input id="editReservationId" type="hidden">
+  <label>اتاق</label><select id="editRoom"></select>
+  <label>تاریخ ورود</label>
+  <input id="editCheckinDisplay" type="text" placeholder="تاریخ ورود" readonly onclick="openJalaliPicker('editCheckin')">
+  <input id="editCheckin" type="hidden">
+  <label>تاریخ خروج</label>
+  <input id="editCheckoutDisplay" type="text" placeholder="تاریخ خروج" readonly onclick="openJalaliPicker('editCheckout')">
+  <input id="editCheckout" type="hidden">
+  <label>بزرگسال</label><input id="editAdults" type="number" min="1">
+  <label>کودک</label><input id="editChildren" type="number" min="0">
+  <label>نوزاد</label><input id="editInfants" type="number" min="0">
+  <label>مبلغ کل (تومان)</label><input id="editAmount" type="text" inputmode="numeric">
+  <label>بیعانه (تومان)</label><input id="editDeposit" type="text" inputmode="numeric">
+  <label>توضیحات</label><textarea id="editNotes" rows="3"></textarea>
+  <div class="picker-actions"><button class="secondary" onclick="closeEditModal()">انصراف</button><button onclick="saveReservationEdit()">ذخیره تغییرات</button></div>
+  <div id="editMessage" class="muted"></div>
+ </div>
+</div>
+
+<div id="jalaliPicker" class="jalali-overlay hidden"
+ onclick="if(event.target===this)closeJalaliPicker()">
+
+ <div class="jalali-modal">
+
+  <div class="jalali-title">انتخاب تاریخ شمسی</div>
+
+  <div class="jalali-wheels">
+
+   <div class="wheel-wrap">
+    <small>روز</small>
+    <div id="dayWheel" class="wheel"></div>
+   </div>
+
+   <div class="wheel-wrap">
+    <small>ماه</small>
+    <div id="monthWheel" class="wheel"></div>
+   </div>
+
+   <div class="wheel-wrap">
+    <small>سال</small>
+    <div id="yearWheel" class="wheel"></div>
+   </div>
+
+  </div>
+
+  <div id="pickerError"></div>
+
+  <div class="picker-actions">
+   <button class="secondary"
+    onclick="closeJalaliPicker()">انصراف</button>
+
+   <button onclick="confirmJalaliPicker()">تأیید تاریخ</button>
+  </div>
+
+ </div>
+</div>
+<script>
+const SUPABASE_URL = "https://bvvnykswdkbebmghndzt.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_HsF_nBfxbh3TnxCPUrJqsA_jTzB15lf";
+
+const db = window.supabase.createClient(
+SUPABASE_URL, SUPABASE_ANON_KEY
+);
+
+let rooms = [];
+ 
+function formatMoney(input) {
+  let digits = input.value
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/\D/g, '');
+
+  input.value = digits
+    ? Number(digits).toLocaleString('en-US')
+    : '';
+}
+
+document.getElementById('amount')
+  .addEventListener('input', e => formatMoney(e.target));
+
+document.getElementById('deposit')
+  .addEventListener('input', e => formatMoney(e.target));
+
+document.getElementById('editAmount').addEventListener('input', e => formatMoney(e.target));
+document.getElementById('editDeposit').addEventListener('input', e => formatMoney(e.target));
+
+async function login(){
+ const {error}=await db.auth.signInWithPassword({
+ email:document.getElementById('email').value,
+ password:document.getElementById('password').value
+ });
+ document.getElementById('message').textContent=error
+ ? error.message : '';
+ if(!error) await startApp();
+}
+
+async function logout(){
+ await db.auth.signOut();
+ location.reload();
+}
+
+async function startApp(){
+ document.getElementById('login').classList.add('hidden');
+ document.getElementById('dashboard').classList.remove('hidden');
+ await loadRooms();
+ await loadReservations();
+}
+
+function showTab(tab){
+ ['home','rooms','booking','list','calendar'].forEach(id=>{
+ document.getElementById(id).classList.toggle('hidden',id!==tab);
+ });
+ if(tab==='calendar') renderOccupancyCalendar();
+}
+
+async function loadRooms(){
+ const {data,error}=await db.from('rooms').select('*').eq('is_active',true).order('display_order');
+ if(error){alert('خطا در دریافت اتاق‌ها: '+error.message);return;}
+ rooms=data||[];
+ document.getElementById('roomSelect').innerHTML='<option value="">انتخاب اتاق</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)} - ظرفیت ${r.max_capacity} نفر</option>`).join('');
+ document.getElementById('editRoom').innerHTML=rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+ renderRoomStatus();
+}
+function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+let cachedReservations=[];
+function renderRoomStatus(){
+ const today=todayISO();
+ document.getElementById('roomList').innerHTML=rooms.map(room=>{
+  const active=cachedReservations.filter(r=>r.room_id===room.id&&!['cancelled','checked_out'].includes(r.status)&&r.check_out>today&&r.check_in<=today);
+  const future=cachedReservations.filter(r=>r.room_id===room.id&&!['cancelled','checked_out'].includes(r.status)&&r.check_in>today);
+  let cls='room-free',pill='status-free',label='خالی';
+  if(active.some(r=>r.status==='checked_in')){cls='room-occupied';pill='status-occupied';label='در حال اقامت';}
+  else if(active.length){cls='room-booked';pill='status-booked';label='رزرو شده';}
+  else if(future.length){cls='room-booked';pill='status-booked';label='رزرو آینده';}
+  return `<div class="room ${cls}"><b>${escapeHtml(room.name)}</b><span class="status-pill ${pill}">${label}</span><br><small>ظرفیت معمول: ${room.capacity} نفر</small><br><small>حداکثر ظرفیت: ${room.max_capacity} نفر</small></div>`;
+ }).join('');
+}
+
+function formatJalaliDate(dateString) {
+  if (!dateString) return '';
+
+  const [y, m, d] = dateString.split('-').map(Number);
+  const date = new Date(y, m - 1, d, 12);
+
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+ // موتور تقویم شمسی بوم‌گردی مهران
+
+const jalaliMonths = [
+ 'فروردین','اردیبهشت','خرداد',
+ 'تیر','مرداد','شهریور',
+ 'مهر','آبان','آذر',
+ 'دی','بهمن','اسفند'
+];
+
+let currentPickerField = null;
+
+let selectedJalali = {
+ day:1,
+ month:1,
+ year:1405
+};
+
+function getJalaliParts(date){
+
+ const parts = new Intl.DateTimeFormat(
+  'en-US-u-ca-persian',
+  {
+   year:'numeric',
+   month:'numeric',
+   day:'numeric'
+  }
+ ).formatToParts(date);
+
+ const result = {};
+
+ parts.forEach(p=>{
+  if(p.type==='year') result.year=Number(p.value);
+  if(p.type==='month') result.month=Number(p.value);
+  if(p.type==='day') result.day=Number(p.value);
+ });
+
+ return result;
+}
+
+function jalaliToGregorian(jy,jm,jd){
+ // شروع سال شمسی در بازه‌ای از اسفند سال میلادی قبل تا فروردین سال بعد است.
+ // بنابراین باید کل بازه سال را جست‌وجو کنیم، نه فقط چند روز اطراف نوروز.
+ if(!Number.isInteger(jy) || !Number.isInteger(jm) || !Number.isInteger(jd)) return null;
+ if(jy < 1 || jm < 1 || jm > 12 || jd < 1 || jd > 31) return null;
+
+ const start = new Date(jy + 621, 0, 1, 12);
+ for(let i=0; i<460; i++){
+  const date = new Date(start);
+  date.setDate(start.getDate() + i);
+  const p = getJalaliParts(date);
+  if(p.year === jy && p.month === jm && p.day === jd){
+   return date;
+  }
+ }
+ return null;
+}
+
+function renderWheel(id,items,selected,key){
+
+ const wheel=document.getElementById(id);
+
+ wheel.innerHTML=
+ '<div class="wheel-spacer"></div>'+
+
+ items.map(item=>`
+  <button type="button"
+   class="wheel-item ${item.value===selected?'active':''}"
+   onclick="this.parentElement.scrollTo({top:${items.indexOf(item)}*44,behavior:'smooth'})">
+   ${item.label}
+  </button>
+ `).join('')+
+
+ '<div class="wheel-spacer"></div>';
+
+ wheel.onscroll=()=>{
+
+  const index=Math.max(0,Math.min(
+   items.length-1,
+   Math.round(wheel.scrollTop/44)
+  ));
+
+  selectedJalali[key]=items[index].value;
+
+  wheel.querySelectorAll('.wheel-item')
+   .forEach((item,i)=>{
+    item.classList.toggle('active',i===index);
+   });
+ };
+
+ wheel.scrollTop=items.findIndex(
+  item=>item.value===selected
+ )*44;
+}
+
+function openJalaliPicker(field){
+
+ currentPickerField=field;
+
+ const hidden=document.getElementById(field);
+
+ let date=hidden.value
+  ? new Date(hidden.value+'T12:00:00')
+  : new Date();
+
+ let p=getJalaliParts(date);
+
+ if(p.year<1405 || p.year>1600){
+  p={day:1,month:1,year:1405};
+ }
+
+ selectedJalali={
+  day:p.day,
+  month:p.month,
+  year:p.year
+ };
+
+ renderWheel(
+  'dayWheel',
+  Array.from({length:31},(_,i)=>({
+   value:i+1,
+   label:String(i+1).padStart(2,'0')
+  })),
+  p.day,
+  'day'
+ );
+
+ renderWheel(
+  'monthWheel',
+  jalaliMonths.map((name,i)=>({
+   value:i+1,
+   label:name
+  })),
+  p.month,
+  'month'
+ );
+
+ renderWheel(
+  'yearWheel',
+  Array.from({length:196},(_,i)=>({
+   value:1405+i,
+   label:String(1405+i)
+  })),
+  p.year,
+  'year'
+ );
+
+ document.getElementById('pickerError').textContent='';
+
+ document.getElementById('jalaliPicker')
+  .classList.remove('hidden');
+}
+
+function closeJalaliPicker(){
+
+ document.getElementById('jalaliPicker')
+  .classList.add('hidden');
+}
+
+function confirmJalaliPicker(){
+
+ const {year,month,day}=selectedJalali;
+
+ const date=jalaliToGregorian(year,month,day);
+
+ if(!date){
+
+  document.getElementById('pickerError')
+   .textContent='این تاریخ در تقویم شمسی معتبر نیست.';
+
+  return;
+ }
+
+ const iso=[
+  date.getFullYear(),
+  String(date.getMonth()+1).padStart(2,'0'),
+  String(date.getDate()).padStart(2,'0')
+ ].join('-');
+
+ document.getElementById(currentPickerField).value=iso;
+
+ document.getElementById(
+  currentPickerField+'Display'
+ ).value=formatJalaliDate(iso);
+
+ closeJalaliPicker();
+}
+async function loadReservations(){
+ const recentEl=document.getElementById('recent');
+ const listEl=document.getElementById('reservationList');
+ recentEl.textContent='در حال دریافت اطلاعات...';
+ listEl.textContent='در حال دریافت اطلاعات...';
+ const {data,error}=await db.from('reservations')
+  .select('*, rooms(name), guests(full_name, phone)')
+  .order('created_at',{ascending:false});
+ if(error){
+  console.error(error);
+  recentEl.textContent='خطا در دریافت رزروها: '+error.message;
+  listEl.textContent='خطا در دریافت رزروها: '+error.message;
+  return;
+ }
+ cachedReservations=data||[];
+ document.getElementById('total').textContent=cachedReservations.filter(r=>r.status!=='cancelled').length;
+ renderRoomStatus();
+ renderReservationList();
+ if(!document.getElementById('calendar').classList.contains('hidden')) renderOccupancyCalendar();
+ const recent=cachedReservations.slice(0,5);
+ recentEl.innerHTML=recent.length?recent.map(r=>reservationCard(r,false)).join(''):'هنوز رزروی ثبت نشده است.';
+}
+// تقویم ماهانه شمسی برای نمایش اشغال ۹ اتاق
+const jalaliMonthNames=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+function jalaliParts(date){
+ const parts=new Intl.DateTimeFormat('en-US-u-ca-persian',{year:'numeric',month:'numeric',day:'numeric'}).formatToParts(date);
+ const get=t=>Number(parts.find(x=>x.type===t)?.value||0);
+ return {year:get('year'),month:get('month'),day:get('day')};
+}
+let calendarYear=jalaliParts(new Date()).year;
+let calendarMonth=jalaliParts(new Date()).month;
+function changeCalendarMonth(delta){calendarMonth+=delta;if(calendarMonth<1){calendarMonth=12;calendarYear--;}if(calendarMonth>12){calendarMonth=1;calendarYear++;}renderOccupancyCalendar();}
+function goCalendarToday(){const p=jalaliParts(new Date());calendarYear=p.year;calendarMonth=p.month;renderOccupancyCalendar();}
+function jalaliMonthDates(year,month){
+ // شروع ماه شمسی را با جست‌وجوی روزهای میلادی پیدا می‌کنیم؛ بدون وابستگی به افزونه
+ let d=new Date(year+621,0,1,12), start=null;
+ for(let i=0;i<420;i++){const p=jalaliParts(d);if(p.year===year&&p.month===month){start=new Date(d);break;}d.setDate(d.getDate()+1);}
+ if(!start)return [];
+ const out=[];while(true){const p=jalaliParts(start);if(p.year!==year||p.month!==month)break;out.push({iso:`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`,day:p.day,date:new Date(start)});start.setDate(start.getDate()+1);}
+ return out;
+}
+function renderOccupancyCalendar(){
+ const target=document.getElementById('calendarGrid');if(!target)return;
+ document.getElementById('calendarTitle').textContent=`${jalaliMonthNames[calendarMonth-1]} ${calendarYear}`;
+ const dates=jalaliMonthDates(calendarYear,calendarMonth);if(!dates.length){target.textContent='امکان ساخت تقویم این ماه وجود ندارد.';return;}
+ const today=todayISO();
+ let html='<table class="calendar-grid"><thead><tr><th class="room-name">اتاق / روز</th>';
+ for(const d of dates)html+=`<th class="${d.iso===today?'day-today':''}">${d.day}</th>`;
+ html+='</tr></thead><tbody>';
+ for(const room of rooms){
+  html+=`<tr><th class="room-name">${escapeHtml(room.name)}</th>`;
+  for(const d of dates){
+   const r=cachedReservations.find(x=>String(x.room_id)===String(room.id)&&!['cancelled'].includes(x.status)&&x.check_in<=d.iso&&d.iso<x.check_out);
+   if(!r){html+=`<td class="calendar-cell ${d.iso===today?'day-today':''}" title="${escapeHtml(room.name)} - ${d.day}: خالی">·</td>`;continue;}
+   const status=['pending','confirmed','checked_in','checked_out'].includes(r.status)?r.status:'pending';
+   const guest=r.guests?.full_name||'مهمان';
+   const statusText={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج'}[status];
+   const title=`${room.name} | ${guest} | ${statusText} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}`;
+   const mark=d.iso===r.check_in?'ور':(d.iso===r.check_out?'خ':'●');
+   html+=`<td class="calendar-cell ${status} ${d.iso===today?'day-today':''}" title="${escapeHtml(title)}" onclick="showCalendarReservation('${r.id}')"><span class="cell-mark">${mark}</span></td>`;
+  }
+  html+='</tr>';
+ }
+ html+='</tbody></table>';target.innerHTML=html;
+}
+function showCalendarReservation(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ const room=rooms.find(x=>String(x.id)===String(r.room_id));
+ const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
+ alert(`مهمان: ${r.guests?.full_name||'—'}\nاتاق: ${room?.name||'—'}\nورود: ${formatJalaliDate(r.check_in)}\nخروج: ${formatJalaliDate(r.check_out)}\nوضعیت: ${names[r.status]||r.status}\nموبایل: ${r.guests?.phone||'—'}`);
+}
+
+function reservationCard(r,actions=true){
+ const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
+ const remaining=Math.max(0,Number(r.total_amount||0)-Number(r.paid_amount||0));
+ return `<div class="reservation">
+  <b>${escapeHtml(r.guests?.full_name||'مهمان')}</b>
+  <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
+  <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
+  <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
+  ${actions?`<div class="action-row">
+   ${!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button>`:''}
+   ${!['cancelled','checked_out'].includes(r.status)?`<button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+  </div>`:''}
+ </div>`;
+}
+function renderReservationList(){
+ const box=document.getElementById('reservationList');if(!box)return;
+ const q=(document.getElementById('reservationSearch')?.value||'').trim().toLocaleLowerCase();
+ const filtered=cachedReservations.filter(r=>{
+  const hay=[r.guests?.full_name,r.guests?.phone,r.rooms?.name,r.status,r.check_in,r.check_out].join(' ').toLocaleLowerCase();
+  return hay.includes(q);
+ });
+ box.innerHTML=filtered.length?filtered.map(r=>reservationCard(r,true)).join(''):'رزروی با این مشخصات پیدا نشد.';
+}
+function openEditModal(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ document.getElementById('editReservationId').value=r.id;
+ document.getElementById('editRoom').value=r.room_id;
+ document.getElementById('editCheckin').value=r.check_in;
+ document.getElementById('editCheckout').value=r.check_out;
+ document.getElementById('editCheckinDisplay').value=formatJalaliDate(r.check_in);
+ document.getElementById('editCheckoutDisplay').value=formatJalaliDate(r.check_out);
+ document.getElementById('editAdults').value=r.adults??1;
+ document.getElementById('editChildren').value=r.children??0;
+ document.getElementById('editInfants').value=r.infants??0;
+ document.getElementById('editAmount').value=Number(r.total_amount||0).toLocaleString('en-US');
+ document.getElementById('editDeposit').value=Number(r.deposit_amount||0).toLocaleString('en-US');
+ document.getElementById('editNotes').value=r.notes||'';
+ document.getElementById('editMessage').textContent='';
+ document.getElementById('editModal').classList.remove('hidden');
+}
+function closeEditModal(){document.getElementById('editModal').classList.add('hidden');}
+async function saveReservationEdit(){
+ const id=document.getElementById('editReservationId').value;
+ const room=rooms.find(x=>String(x.id)===String(document.getElementById('editRoom').value));
+ const check_in=document.getElementById('editCheckin').value,check_out=document.getElementById('editCheckout').value;
+ const adults=Number(document.getElementById('editAdults').value),children=Number(document.getElementById('editChildren').value),infants=Number(document.getElementById('editInfants').value);
+ const total_amount=Number(document.getElementById('editAmount').value.replace(/,/g,''))||0;
+ const deposit_amount=Number(document.getElementById('editDeposit').value.replace(/,/g,''))||0;
+ const r=cachedReservations.find(x=>String(x.id)===String(id));
+ const msg=document.getElementById('editMessage');
+ if(!room||!check_in||!check_out||check_out<=check_in){msg.textContent='اتاق و تاریخ‌های معتبر را انتخاب کن.';return;}
+ if(adults<1||adults+children>Number(room.max_capacity)){msg.textContent='تعداد مسافران از ظرفیت اتاق بیشتر است.';return;}
+ if(total_amount<Number(r.paid_amount||0)||deposit_amount<0||deposit_amount>total_amount||deposit_amount>Number(r.paid_amount||0)){msg.textContent='مبلغ کل نباید از مبلغ پرداخت‌شده کمتر باشد و بیعانه نیز باید از مبلغ کل و پرداختی بیشتر نباشد.';return;}
+ const {error}=await db.from('reservations').update({room_id:room.id,check_in,check_out,adults,children,infants,total_amount,deposit_amount,notes:document.getElementById('editNotes').value}).eq('id',id);
+ if(error){msg.textContent='خطا در ذخیره: '+error.message;return;}
+ closeEditModal();await loadReservations();alert('تغییرات رزرو ذخیره شد.');
+}
+async function addPayment(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ const amountText=prompt('مبلغ پرداخت جدید به تومان را وارد کن:');if(amountText===null)return;
+ const amount=Number(amountText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,،\s]/g,''));
+ if(!Number.isFinite(amount)||amount<=0){alert('مبلغ پرداخت معتبر نیست.');return;}
+ const newPaid=Number(r.paid_amount||0)+amount;
+ if(newPaid>Number(r.total_amount||0)){alert('مبلغ پرداختی جدید از مانده حساب بیشتر است.');return;}
+ const {error}=await db.from('reservations').update({paid_amount:newPaid}).eq('id',id);
+ if(error){alert('خطا در ثبت پرداخت: '+error.message);return;}
+ await loadReservations();alert('پرداخت ثبت شد. مانده جدید: '+(Number(r.total_amount)-newPaid).toLocaleString('en-US')+' تومان');
+}
+
+document.getElementById('bookingForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const msg=document.getElementById('bookingMessage');
+ msg.textContent='در حال ثبت رزرو...';
+
+ const room=rooms.find(r=>r.id===document.getElementById('roomSelect').value);
+ if(!room){msg.textContent='اتاق را انتخاب کنید.';return;}
+
+ const adults=Number(document.getElementById('adults').value);
+ const children=Number(document.getElementById('children').value);
+ const infants=Number(document.getElementById('infants').value);
+ const totalPeople=adults+children;
+
+ if(totalPeople>room.max_capacity){
+ msg.textContent='تعداد مهمانان بیشتر از ظرفیت اتاق است.';
+ return;
+ }
+
+ const checkIn=document.getElementById('checkin').value;
+ const checkOut=document.getElementById('checkout').value;
+
+ if(checkOut<=checkIn){
+ msg.textContent='تاریخ خروج باید بعد از تاریخ ورود باشد.';
+ return;
+ }
+
+ const phone=document.getElementById('phone').value.trim();
+
+ let {data:guest,error}=await db.from('guests')
+ .select('id').eq('phone',phone).limit(1).maybeSingle();
+
+ if(error){msg.textContent=error.message;return;}
+
+ if(!guest){
+ const result=await db.from('guests').insert({
+ full_name:document.getElementById('guestName').value.trim(),
+ phone:phone
+ }).select('id').single();
+
+ if(result.error){msg.textContent=result.error.message;return;}
+ guest=result.data;
+ }
+
+ const amount=Number(document.getElementById('amount').value.replace(/,/g,'')) || 0;
+const deposit=Number(document.getElementById('deposit').value.replace(/,/g,'')) || 0;
+ if(deposit>amount){
+ msg.textContent='بیعانه نمی‌تواند از مبلغ کل بیشتر باشد.';
+ return;
+ }
+
+ const {error:saveError}=await db.from('reservations').insert({
+ guest_id:guest.id,
+ room_id:room.id,
+ check_in:checkIn,
+ check_out:checkOut,
+ adults,children,infants,
+ total_amount:amount,
+ deposit_amount:deposit,
+ paid_amount:deposit,
+ status:'pending',
+ notes:document.getElementById('notes').value
+ });
+
+ if(saveError){
+ msg.textContent='خطا: '+saveError.message;
+ return;
+ }
+
+ msg.textContent='رزرو با موفقیت ثبت شد.';
+ e.target.reset();
+ document.getElementById('adults').value=1;
+ document.getElementById('amount').value=0;
+ document.getElementById('deposit').value=0;
+ await loadReservations();
+});
+
+async function cancelReservation(id){
+
+ const confirmCancel=confirm(
+ 'آیا از لغو این رزرو اطمینان دارید؟'
+ );
+
+ if(!confirmCancel) return;
+
+ const {error}=await db
+ .from('reservations')
+ .update({status:'cancelled'})
+ .eq('id',id);
+
+ if(error){
+ alert('خطا در لغو رزرو: '+error.message);
+ return;
+ }
+
+ alert('رزرو با موفقیت لغو شد.');
+
+ await loadReservations();
+}
+ 
+db.auth.getSession().then(({data})=>{
+ if(data.session) startApp();
+});
+</script>
+</body>
+</html>
