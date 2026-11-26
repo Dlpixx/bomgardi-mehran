@@ -57,6 +57,45 @@ function normalizePhone(value) {
   if (phone.startsWith("0098")) phone = "0" + phone.slice(4);
   return phone;
 }
+
+async function sendMelipayamakSms(env, to, text) {
+  const phone = normalizePhone(to);
+  if (!/^09\\d{9}$/.test(phone)) {
+    return { ok:false, reason:"INVALID_RECIPIENT" };
+  }
+  if (!env.MELIPAYAMAK_API_URL || !env.MELIPAYAMAK_FROM) {
+    return { ok:false, reason:"SMS_NOT_CONFIGURED" };
+  }
+
+  try {
+    const response = await fetch(env.MELIPAYAMAK_API_URL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        from:env.MELIPAYAMAK_FROM,
+        to:phone,
+        text
+      })
+    });
+    const raw = await response.text();
+    let result = null;
+    try { result = raw ? JSON.parse(raw) : null; } catch {}
+    const ok = response.ok && result && result.recId;
+    if (!ok) {
+      console.error("MELIPAYAMAK_SEND_FAILED", {
+        httpStatus:response.status,
+        providerStatus:result?.status || null
+      });
+      return { ok:false, reason:"PROVIDER_REJECTED" };
+    }
+    return { ok:true, recId:result.recId };
+  } catch (error) {
+    console.error("MELIPAYAMAK_REQUEST_FAILED", {
+      message:String(error?.message || "unknown").slice(0,200)
+    });
+    return { ok:false, reason:"NETWORK_ERROR" };
+  }
+}
 async function handleApi(request, env, url) {
   if (request.method === "OPTIONS") {
     return new Response(null, {status:204, headers:{
@@ -86,7 +125,8 @@ async function handleApi(request, env, url) {
       ok:true, service:"bomgardi-mehran", mode:"experimental",
       databaseConfigured:configured, databaseReachable,
       databaseErrorCode, bookingEnabled:configured && databaseReachable,
-      smsEnabled:false, otpEnabled:false
+      smsEnabled:!!(env.MELIPAYAMAK_API_URL && env.MELIPAYAMAK_FROM),
+      adminSmsEnabled:!!(env.MELIPAYAMAK_ADMIN_PHONE), otpEnabled:false
     });
   }
   if (!config(env)) return json({
@@ -192,6 +232,40 @@ async function handleApi(request, env, url) {
         })
       });
       const saved = reservation?.[0];
+
+      // SMS delivery is best-effort: a provider/network failure must never undo a saved booking.
+      if (saved?.id && env.MELIPAYAMAK_API_URL && env.MELIPAYAMAK_FROM) {
+        const trackingCode = saved.id.slice(-8).toUpperCase();
+        const guestMessage = `بوم‌گردی مهران
+درخواست رزرو شما ثبت شد و در انتظار تأیید مدیریت است.
+اتاق: ${room.name}
+ورود: ${checkIn}
+خروج: ${checkOut}
+کد پیگیری: ${trackingCode}`;
+
+        const smsJobs = [
+          sendMelipayamakSms(env, phone, guestMessage)
+        ];
+
+        const adminPhone = normalizePhone(env.MELIPAYAMAK_ADMIN_PHONE || "");
+        if (/^09\\d{9}$/.test(adminPhone)) {
+          const adminMessage = `بوم‌گردی مهران
+درخواست رزرو جدید
+مهمان: ${fullName}
+موبایل: ${phone}
+اتاق: ${room.name}
+ورود: ${checkIn}
+خروج: ${checkOut}
+کد پیگیری: ${trackingCode}`;
+          smsJobs.push(sendMelipayamakSms(env, adminPhone, adminMessage));
+        }
+
+        const smsResults = await Promise.allSettled(smsJobs);
+        console.log("BOOKING_SMS_RESULT", smsResults.map(item =>
+          item.status === "fulfilled" ? item.value : {ok:false,reason:"UNEXPECTED_ERROR"}
+        ));
+      }
+
       return json({
         ok:true,
         message:"درخواست شما ثبت شد و پس از بررسی مدیر با شما تماس گرفته می‌شود.",
