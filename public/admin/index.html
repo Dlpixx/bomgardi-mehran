@@ -930,7 +930,7 @@ async function getBackupData(){
 }
 function downloadBlob(content,type,filename){
  const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 async function downloadBackupJSON(){
  const msg=document.getElementById('backupMessage');msg.textContent='در حال آماده‌سازی نسخه پشتیبان...';
