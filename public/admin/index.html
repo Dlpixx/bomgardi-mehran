@@ -763,6 +763,7 @@ function reservationCard(r,actions=true){
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
    ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
    ${actions&&r.status!=='cancelled'?`<button class="secondary" onclick="printInvoice('${r.id}')">فاکتور / رسید</button>`:''}
+   ${actions&&['confirmed','checked_in','checked_out'].includes(r.status)?`<button class="secondary" onclick="issueGuestAccessKey('${r.id}')">صدور کد ورود مهمان</button>`:''}
    ${actions&&r.status!=='cancelled'&&r.review_token&&(r.status==='checked_out'||r.check_out<todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
   </div>`:''}
  </div>`;
@@ -1072,6 +1073,33 @@ async function confirmReservation(id){
  if(!data){alert('وضعیت این رزرو تغییر کرده یا قبلاً تأیید شده است. فهرست به‌روزرسانی می‌شود.');await loadReservations();return;}
  await loadReservations();
  alert('رزرو با موفقیت تأیید شد. اتاق برای این بازه همچنان مسدود است.');
+}
+
+
+async function issueGuestAccessKey(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));
+ if(!r||!['confirmed','checked_in','checked_out'].includes(r.status)){
+  alert('صدور کد ورود فقط برای رزرو تأییدشده امکان‌پذیر است.');return;
+ }
+ if(!confirm('یک کد ورود جدید برای '+(r.guests?.full_name||'مهمان')+' صادر شود؟ کد قبلی این رزرو باطل خواهد شد.'))return;
+ try{
+  const bytes=new Uint8Array(24);crypto.getRandomValues(bytes);
+  const key=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key));
+  const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+  const {error}=await db.from('reservations').update({guest_access_token_hash:hash}).eq('id',id);
+  if(error)throw error;
+  const message='بوم‌گردی مهران - ورود مهمان\\nشماره موبایل: '+(r.guests?.phone||'')+'\\nکد پیگیری: '+r.id.slice(-8).toUpperCase()+'\\nکد ورود اختصاصی: '+key+'\\nورود به پنل: '+location.origin+'/guest/';
+  await loadReservations();
+  try{
+   await navigator.clipboard.writeText(message);
+   alert('کد ورود جدید صادر و متن راهنمای مهمان کپی شد. آن را برای مهمان ارسال کنید.');
+  }catch{
+   prompt('کد ورود جدید صادر شد. متن زیر را برای مهمان ارسال کنید:',message);
+  }
+ }catch(error){
+  alert('صدور کد ورود انجام نشد: '+(error.message||'خطای نامشخص'));
+ }
 }
 
 async function addPayment(id){
