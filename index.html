@@ -522,65 +522,66 @@ function confirmJalaliPicker(){
  closeJalaliPicker();
 }
 async function loadReservations(){
- const recentEl=document.getElementById('recent');
- const listEl=document.getElementById('reservationList');
+ const recentEl = document.getElementById('recent');
+ const listEl = document.getElementById('reservationList');
 
- recentEl.textContent='در حال دریافت اطلاعات...';
- listEl.textContent='در حال دریافت اطلاعات...';
+ recentEl.textContent = 'در حال دریافت اطلاعات...';
+ listEl.textContent = 'در حال دریافت اطلاعات...';
 
- try{
-  const {data,error}=await db.from('reservations')
-   .select('*,rooms(name),guests(full_name,phone)')
-   .order('created_at',{ascending:false});
+ try {
+  const { data, error } = await db
+   .from('reservations')
+   .select('*, rooms(name), guests(full_name, phone)')
+   .order('created_at', { ascending: false });
 
-  if(error){
-   const errorText='خطا در دریافت رزروها: '+error.message;
-   recentEl.textContent=errorText;
-   listEl.textContent=errorText;
-   console.error('Reservation loading error:',error);
+  if (error) {
+   console.error('Reservation loading error:', error);
+   const message = 'خطا در دریافت رزروها: ' + error.message;
+   recentEl.textContent = message;
+   listEl.textContent = message;
    return;
   }
 
-  const reservations=data||[];
-  const statusNames={
-   pending:'در انتظار تأیید',
-   confirmed:'تأیید شده',
-   checked_in:'مهمان مقیم',
-   checked_out:'تسویه و خروج',
-   cancelled:'لغو شده'
+  const reservations = data || [];
+
+  const statusNames = {
+   pending: 'در انتظار تأیید',
+   confirmed: 'تأیید شده',
+   checked_in: 'مهمان مقیم',
+   checked_out: 'تسویه و خروج',
+   cancelled: 'لغو شده'
   };
 
-  const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,char=>({
-   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[char]));
+  const html = reservations.map(r => `
+   <div class="reservation">
+    <b>${r.guests?.full_name || 'مهمان'}</b>
+    <div>${r.rooms?.name || 'اتاق'} |
+     ${formatJalaliDate(r.check_in)} تا
+     ${formatJalaliDate(r.check_out)}
+    </div>
+    <div class="muted">
+     وضعیت: ${statusNames[r.status] || r.status}
+    </div>
+    ${!['cancelled', 'checked_out'].includes(r.status) ? `
+     <button class="secondary"
+      onclick="cancelReservation('${r.id}')">
+      لغو رزرو
+     </button>` : ''}
+   </div>
+  `).join('');
 
-  const html=reservations.map(r=>{
-   const guestName=escapeHTML(r.guests?.full_name||'مهمان');
-   const roomName=escapeHTML(r.rooms?.name||'اتاق');
-   const status=escapeHTML(statusNames[r.status]||r.status||'نامشخص');
-   const dates=`${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}`;
-   const canCancel=!['cancelled','checked_out'].includes(r.status);
+  document.getElementById('total').textContent =
+   reservations.filter(r => r.status !== 'cancelled').length;
 
-   return `
-    <div class="reservation">
-     <b>${guestName}</b>
-     <div>${roomName} | ${dates}</div>
-     <div class="muted">وضعیت: ${status}</div>
-     ${canCancel ? `<button class="secondary" onclick="cancelReservation('${r.id}')">لغو رزرو</button>` : ''}
-    </div>`;
-  }).join('');
+  recentEl.innerHTML = html || 'هنوز رزروی ثبت نشده است.';
+  listEl.innerHTML = html || 'رزروی وجود ندارد.';
 
-  document.getElementById('total').textContent=
-   reservations.filter(r=>r.status!=='cancelled').length;
-
-  recentEl.innerHTML=html||'هنوز رزروی ثبت نشده است.';
-  listEl.innerHTML=html||'رزروی وجود ندارد.';
-
- }catch(err){
-  const errorText='خطای غیرمنتظره در دریافت رزروها: '+(err?.message||err);
-  recentEl.textContent=errorText;
-  listEl.textContent=errorText;
-  console.error('Unexpected reservation loading error:',err);
+ } catch (err) {
+  console.error('Unexpected reservation error:', err);
+  const message = 'خطای غیرمنتظره در دریافت رزروها: ' +
+   (err?.message || String(err));
+  recentEl.textContent = message;
+  listEl.textContent = message;
  }
 }
 
@@ -661,21 +662,25 @@ const deposit=Number(document.getElementById('deposit').value.replace(/,/g,'')) 
 });
 
 async function cancelReservation(id){
- const confirmCancel=confirm('آیا از لغو این رزرو اطمینان دارید؟');
+
+ const confirmCancel=confirm(
+ 'آیا از لغو این رزرو اطمینان دارید؟'
+ );
+
  if(!confirmCancel) return;
 
  const {error}=await db
-  .from('reservations')
-  .update({status:'cancelled'})
-  .eq('id',id);
+ .from('reservations')
+ .update({status:'cancelled'})
+ .eq('id',id);
 
  if(error){
-  alert('خطا در لغو رزرو: '+error.message);
-  console.error('Reservation cancellation error:',error);
-  return;
+ alert('خطا در لغو رزرو: '+error.message);
+ return;
  }
 
  alert('رزرو با موفقیت لغو شد.');
+
  await loadReservations();
 }
  
