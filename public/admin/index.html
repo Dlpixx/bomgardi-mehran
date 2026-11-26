@@ -1074,7 +1074,7 @@ async function saveReservationEdit(){
 async function confirmReservation(id){
  const r=cachedReservations.find(x=>String(x.id)===String(id));
  if(!r||r.status!=='pending')return;
- const ok=confirm(`درخواست رزرو ${r.guests?.full_name||'مهمان'} برای اتاق ${r.rooms?.name||'انتخاب‌شده'} تأیید شود؟\\nاتاق پس از تأیید برای همین بازه رزرو باقی می‌ماند.`);
+ const ok=confirm(`درخواست رزرو ${r.guests?.full_name||'مهمان'} برای اتاق ${r.rooms?.name||'انتخاب‌شده'} تأیید شود؟\nاتاق پس از تأیید برای همین بازه رزرو باقی می‌ماند.`);
  if(!ok)return;
  const {data,error}=await db.from('reservations')
   .update({status:'confirmed'})
@@ -1110,14 +1110,14 @@ async function prepareWelcomeMessage(id){
   const phone=String(r.guests?.phone||'').trim();
   const trackingCode=String(r.id).slice(-8).toUpperCase();
   const guestUrl=location.origin+'/guest/';
-  const message='سلام '+guestName+' عزیز 🌿\\n'+
-   'خیلی خوش اومدید به بوم‌گردی مهران.\\n'+
-   'امیدواریم اقامت دلنشین و خاطره‌انگیزی داشته باشید.\\n\\n'+
-   'برای ورود به پنل مهمان، اطلاعات زیر را در سایت وارد کنید:\\n'+
-   'شماره موبایلی که هنگام رزرو ثبت کردید: '+phone+'\\n'+
-   'کد پیگیری رزرو: '+trackingCode+'\\n'+
-   'کد ورود اختصاصی (۴۸ کاراکتری): '+key+'\\n\\n'+
-   'لینک ورود به پنل مهمان:\\n'+guestUrl;
+  const message='سلام '+guestName+' عزیز 🌿\n'+
+   'خیلی خوش اومدید به بوم‌گردی مهران.\n'+
+   'امیدواریم اقامت دلنشین و خاطره‌انگیزی داشته باشید.\n\n'+
+   'برای ورود به پنل مهمان، اطلاعات زیر را در سایت وارد کنید:\n'+
+   'شماره موبایلی که هنگام رزرو ثبت کردید: '+phone+'\n'+
+   'کد پیگیری رزرو: '+trackingCode+'\n'+
+   'کد ورود اختصاصی (۴۸ کاراکتری): '+key+'\n\n'+
+   'لینک ورود به پنل مهمان:\n'+guestUrl;
   document.getElementById('welcomeText').value=message;
   document.getElementById('welcomeCopyStatus').textContent='کد ورود جدید صادر شد. متن آماده ارسال است؛ برای کپی روی دکمه زیر بزنید.';
   document.getElementById('welcomeModal').classList.remove('hidden');
