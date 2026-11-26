@@ -660,6 +660,29 @@ const deposit=Number(document.getElementById('deposit').value.replace(/,/g,'')) 
  await loadReservations();
 });
 
+async function cancelReservation(id){
+
+ const confirmCancel=confirm(
+ 'آیا از لغو این رزرو اطمینان دارید؟'
+ );
+
+ if(!confirmCancel) return;
+
+ const {error}=await db
+ .from('reservations')
+ .update({status:'cancelled'})
+ .eq('id',id);
+
+ if(error){
+ alert('خطا در لغو رزرو: '+error.message);
+ return;
+ }
+
+ alert('رزرو با موفقیت لغو شد.');
+
+ await loadReservations();
+}
+ 
 db.auth.getSession().then(({data})=>{
  if(data.session) startApp();
 });
