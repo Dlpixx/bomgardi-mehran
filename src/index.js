@@ -22,7 +22,7 @@ function tehranToday() {
 function config(env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return null;
   return {
-    url: env.SUPABASE_URL.replace(/\\/$/, ""),
+    url: env.SUPABASE_URL.replace(/\/$/, ""),
     key: env.SUPABASE_SERVICE_ROLE_KEY
   };
 }
