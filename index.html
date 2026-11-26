@@ -120,6 +120,25 @@ form button{width:100%}
 .status-free{background:#e4f4e8;color:#236b39}.status-booked{background:#fff0d8;color:#895500}.status-occupied{background:#f9dfdf;color:#9b2929}.status-cancelled{background:#eee;color:#666}
 .room{border-radius:13px;padding:13px;border:1px solid #eee2d5}.room-free{background:#f0f8f1;border-color:#cce6d0}.room-booked{background:#fff8eb;border-color:#f0d9a8}.room-occupied{background:#fff0f0;border-color:#efcaca}
 .action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
+
+.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 14px;flex-wrap:wrap}
+.calendar-toolbar button{padding:10px 13px}
+.calendar-title{font-weight:bold;text-align:center;flex:1;min-width:130px}
+.calendar-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:#66513f;margin:10px 0 14px}
+.legend-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:4px;vertical-align:middle}
+.calendar-scroll{overflow-x:auto;border:1px solid #eee2d5;border-radius:12px;background:#fff;direction:rtl}
+.calendar-grid{border-collapse:separate;border-spacing:2px;min-width:900px;width:100%;font-size:11px}
+.calendar-grid th,.calendar-grid td{padding:7px 4px;text-align:center;min-width:27px;border-radius:5px}
+.calendar-grid thead th{background:#f5eee5;position:sticky;top:0}
+.calendar-grid .room-name{position:sticky;right:0;background:#fff;min-width:105px;text-align:right;font-weight:bold;z-index:2}
+.calendar-grid .day-today{outline:2px solid #80502e;outline-offset:-2px}
+.calendar-cell{height:31px;background:#f7f3ec;color:#b7aa9c}
+.calendar-cell.pending{background:#fff0d8;color:#895500}
+.calendar-cell.confirmed{background:#dcebdc;color:#236b39}
+.calendar-cell.checked_in{background:#f5dede;color:#9b2929}
+.calendar-cell.checked_out{background:#e9e4ef;color:#59466f}
+.calendar-cell .cell-mark{font-weight:bold;font-size:12px}
+.calendar-note{font-size:11px;color:#806d5d;margin-top:10px;line-height:1.8}
 </style>
 </head>
 <body>
@@ -146,6 +165,7 @@ form button{width:100%}
 <button onclick="showTab('rooms')">اتاق‌ها</button>
 <button onclick="showTab('booking')">رزرو جدید</button>
 <button onclick="showTab('list')">رزروها</button>
+<button onclick="showTab('calendar')">تقویم اشغال</button>
 <button class="secondary" onclick="logout()">خروج</button>
 </div>
 
@@ -212,6 +232,27 @@ form button{width:100%}
 <input id="reservationSearch" class="search-box" type="search" placeholder="جست‌وجو نام، موبایل یا اتاق..." oninput="renderReservationList()">
 <div id="reservationList"></div>
 </div>
+</div>
+
+<div id="calendar" class="hidden">
+ <div class="card">
+  <h2>تقویم اشغال اتاق‌ها</h2>
+  <div class="calendar-toolbar">
+   <button class="secondary" onclick="changeCalendarMonth(-1)">ماه قبل</button>
+   <div id="calendarTitle" class="calendar-title">تقویم شمسی</div>
+   <button class="secondary" onclick="changeCalendarMonth(1)">ماه بعد</button>
+   <button onclick="goCalendarToday()">امروز</button>
+  </div>
+  <div class="calendar-legend">
+   <span><i class="legend-dot" style="background:#fff0d8"></i>در انتظار تأیید</span>
+   <span><i class="legend-dot" style="background:#dcebdc"></i>تأیید شده</span>
+   <span><i class="legend-dot" style="background:#f5dede"></i>مهمان مقیم</span>
+   <span><i class="legend-dot" style="background:#e9e4ef"></i>تسویه و خروج</span>
+   <span><i class="legend-dot" style="background:#f7f3ec"></i>خالی</span>
+  </div>
+  <div id="calendarGrid" class="calendar-scroll"></div>
+  <p class="calendar-note">هر خانه رنگی نشان‌دهنده اشغال اتاق در آن روز است. تاریخ خروج روزِ خالی‌شدن اتاق محسوب می‌شود. برای دیدن نام مهمان و جزئیات رزرو، روی خانه رنگی لمس کنید.</p>
+ </div>
 </div>
 </section>
 </main>
@@ -327,9 +368,10 @@ async function startApp(){
 }
 
 function showTab(tab){
- ['home','rooms','booking','list'].forEach(id=>{
+ ['home','rooms','booking','list','calendar'].forEach(id=>{
  document.getElementById(id).classList.toggle('hidden',id!==tab);
  });
+ if(tab==='calendar') renderOccupancyCalendar();
 }
 
 async function loadRooms(){
@@ -577,9 +619,60 @@ async function loadReservations(){
  document.getElementById('total').textContent=cachedReservations.filter(r=>r.status!=='cancelled').length;
  renderRoomStatus();
  renderReservationList();
+ if(!document.getElementById('calendar').classList.contains('hidden')) renderOccupancyCalendar();
  const recent=cachedReservations.slice(0,5);
  recentEl.innerHTML=recent.length?recent.map(r=>reservationCard(r,false)).join(''):'هنوز رزروی ثبت نشده است.';
 }
+// تقویم ماهانه شمسی برای نمایش اشغال ۹ اتاق
+const jalaliMonthNames=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+function jalaliParts(date){
+ const parts=new Intl.DateTimeFormat('en-US-u-ca-persian',{year:'numeric',month:'numeric',day:'numeric'}).formatToParts(date);
+ const get=t=>Number(parts.find(x=>x.type===t)?.value||0);
+ return {year:get('year'),month:get('month'),day:get('day')};
+}
+let calendarYear=jalaliParts(new Date()).year;
+let calendarMonth=jalaliParts(new Date()).month;
+function changeCalendarMonth(delta){calendarMonth+=delta;if(calendarMonth<1){calendarMonth=12;calendarYear--;}if(calendarMonth>12){calendarMonth=1;calendarYear++;}renderOccupancyCalendar();}
+function goCalendarToday(){const p=jalaliParts(new Date());calendarYear=p.year;calendarMonth=p.month;renderOccupancyCalendar();}
+function jalaliMonthDates(year,month){
+ // شروع ماه شمسی را با جست‌وجوی روزهای میلادی پیدا می‌کنیم؛ بدون وابستگی به افزونه
+ let d=new Date(year+621,0,1,12), start=null;
+ for(let i=0;i<420;i++){const p=jalaliParts(d);if(p.year===year&&p.month===month){start=new Date(d);break;}d.setDate(d.getDate()+1);}
+ if(!start)return [];
+ const out=[];while(true){const p=jalaliParts(start);if(p.year!==year||p.month!==month)break;out.push({iso:`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`,day:p.day,date:new Date(start)});start.setDate(start.getDate()+1);}
+ return out;
+}
+function renderOccupancyCalendar(){
+ const target=document.getElementById('calendarGrid');if(!target)return;
+ document.getElementById('calendarTitle').textContent=`${jalaliMonthNames[calendarMonth-1]} ${calendarYear}`;
+ const dates=jalaliMonthDates(calendarYear,calendarMonth);if(!dates.length){target.textContent='امکان ساخت تقویم این ماه وجود ندارد.';return;}
+ const today=todayISO();
+ let html='<table class="calendar-grid"><thead><tr><th class="room-name">اتاق / روز</th>';
+ for(const d of dates)html+=`<th class="${d.iso===today?'day-today':''}">${d.day}</th>`;
+ html+='</tr></thead><tbody>';
+ for(const room of rooms){
+  html+=`<tr><th class="room-name">${escapeHtml(room.name)}</th>`;
+  for(const d of dates){
+   const r=cachedReservations.find(x=>String(x.room_id)===String(room.id)&&!['cancelled'].includes(x.status)&&x.check_in<=d.iso&&d.iso<x.check_out);
+   if(!r){html+=`<td class="calendar-cell ${d.iso===today?'day-today':''}" title="${escapeHtml(room.name)} - ${d.day}: خالی">·</td>`;continue;}
+   const status=['pending','confirmed','checked_in','checked_out'].includes(r.status)?r.status:'pending';
+   const guest=r.guests?.full_name||'مهمان';
+   const statusText={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج'}[status];
+   const title=`${room.name} | ${guest} | ${statusText} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}`;
+   const mark=d.iso===r.check_in?'ور':(d.iso===r.check_out?'خ':'●');
+   html+=`<td class="calendar-cell ${status} ${d.iso===today?'day-today':''}" title="${escapeHtml(title)}" onclick="showCalendarReservation('${r.id}')"><span class="cell-mark">${mark}</span></td>`;
+  }
+  html+='</tr>';
+ }
+ html+='</tbody></table>';target.innerHTML=html;
+}
+function showCalendarReservation(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ const room=rooms.find(x=>String(x.id)===String(r.room_id));
+ const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
+ alert(`مهمان: ${r.guests?.full_name||'—'}\nاتاق: ${room?.name||'—'}\nورود: ${formatJalaliDate(r.check_in)}\nخروج: ${formatJalaliDate(r.check_out)}\nوضعیت: ${names[r.status]||r.status}\nموبایل: ${r.guests?.phone||'—'}`);
+}
+
 function reservationCard(r,actions=true){
  const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
  const remaining=Math.max(0,Number(r.total_amount||0)-Number(r.paid_amount||0));
