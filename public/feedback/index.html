@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#56351f">
+<title>ثبت نظر مهمان | بوم‌گردی مهران</title>
+<style>
+:root{--brown:#56351f;--copper:#80502e;--paper:#f7f3ec;--ink:#35271e;--muted:#806d5d}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Tahoma,Arial,sans-serif;line-height:1.9}
+header{background:var(--brown);color:#fff;padding:22px 18px;border-radius:0 0 24px 24px}
+header strong{font-size:22px}header small{display:block;color:#ead8c3}
+main{max-width:620px;margin:auto;padding:22px 16px 50px}
+.card{background:#fff;border:1px solid #eee4d8;border-radius:18px;padding:20px;margin-bottom:15px;box-shadow:0 5px 20px #43250b08}
+h1{font-size:20px;color:var(--brown);margin:0 0 8px}h2{font-size:15px;color:var(--brown);margin:0 0 10px}
+.muted{color:var(--muted);font-size:12px}
+.info{background:#f8f3ec;padding:12px;border-radius:12px;font-size:13px;margin-top:12px}
+.rating{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #eee7df}
+.rating:last-child{border-bottom:0}.rating label{font-size:13px}
+select,textarea{font:inherit;border:1px solid #ddd1c3;border-radius:10px;padding:10px;background:#fff;color:var(--ink)}
+select{min-width:110px}textarea{width:100%;resize:vertical}
+button{width:100%;border:0;border-radius:11px;padding:14px;background:var(--copper);color:#fff;font:inherit;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.6;cursor:not-allowed}
+#message{display:none;padding:13px;border-radius:11px;font-size:13px;margin-top:12px}
+#message.ok{display:block;background:#eaf5ec;color:#236b39}#message.err{display:block;background:#fff0ed;color:#9b3024}
+.success{text-align:center;padding:22px 8px}.success strong{display:block;color:#236b39;font-size:18px}
+@media(max-width:430px){.card{padding:16px}.rating{grid-template-columns:1fr}.rating select{width:100%}}
+</style>
+</head>
+<body>
+<header><strong>بوم‌گردی مهران</strong><small>همراهی شما به بهتر شدن تجربه اقامت ما کمک می‌کند</small></header>
+<main>
+<section class="card">
+<h1>تجربه اقامتتان چطور بود؟ 🌿</h1>
+<p class="muted">از اینکه بوم‌گردی مهران را انتخاب کردید سپاسگزاریم. لطفاً چند لحظه برای ثبت نظر و امتیازتان وقت بگذارید.</p>
+<div class="info" id="stayInfo">در حال دریافت اطلاعات اقامت...</div>
+</section>
+<form id="reviewForm" class="card" hidden>
+<h2>امتیاز شما</h2>
+<div class="rating"><label for="cleanliness">نظافت و تمیزی</label><select id="cleanliness" required><option value="">انتخاب امتیاز</option><option value="5">۵ - عالی</option><option value="4">۴ - خیلی خوب</option><option value="3">۳ - خوب</option><option value="2">۲ - متوسط</option><option value="1">۱ - ضعیف</option></select></div>
+<div class="rating"><label for="staff">برخورد و رفتار کارکنان</label><select id="staff" required><option value="">انتخاب امتیاز</option><option value="5">۵ - عالی</option><option value="4">۴ - خیلی خوب</option><option value="3">۳ - خوب</option><option value="2">۲ - متوسط</option><option value="1">۱ - ضعیف</option></select></div>
+<div class="rating"><label for="room_quality">کیفیت اتاق و امکانات</label><select id="room_quality" required><option value="">انتخاب امتیاز</option><option value="5">۵ - عالی</option><option value="4">۴ - خیلی خوب</option><option value="3">۳ - خوب</option><option value="2">۲ - متوسط</option><option value="1">۱ - ضعیف</option></select></div>
+<div class="rating"><label for="overall">رضایت کلی از اقامت</label><select id="overall" required><option value="">انتخاب امتیاز</option><option value="5">۵ - عالی</option><option value="4">۴ - خیلی خوب</option><option value="3">۳ - خوب</option><option value="2">۲ - متوسط</option><option value="1">۱ - ضعیف</option></select></div>
+<div style="margin-top:15px"><label for="comment" class="muted">توضیحات یا پیشنهاد شما (اختیاری)</label><textarea id="comment" rows="4" maxlength="1500" placeholder="چه چیزی را دوست داشتید؟ چه چیزی می‌تواند بهتر شود؟"></textarea></div>
+<button id="submitBtn" type="submit" style="margin-top:15px">ثبت نظر و امتیاز</button>
+<div id="message" role="status" aria-live="polite"></div>
+</form>
+<section id="done" class="card success" hidden><strong>از همراهی شما ممنونیم ❤️</strong><p class="muted">نظر شما با موفقیت ثبت شد و به بهتر شدن خدمات بوم‌گردی مهران کمک می‌کند.</p></section>
+<footer class="muted" style="text-align:center;padding:12px">بوم‌گردی مهران · یزد</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const token=new URLSearchParams(location.search).get('token')||'';
+function showError(message){$('stayInfo').textContent=message;$('stayInfo').style.color='#9b3024';}
+function jalali(iso){if(!iso)return '—';const [y,m,d]=iso.split('-').map(Number);return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'long',day:'numeric'}).format(new Date(y,m-1,d,12));}
+async function init(){
+ if(!token){showError('لینک نظرسنجی ناقص است. لطفاً از مجموعه لینک معتبر دریافت کنید.');return;}
+ try{
+  const response=await fetch('/api/feedback?token='+encodeURIComponent(token),{cache:'no-store'});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'امکان دریافت اطلاعات وجود ندارد.');
+  $('stayInfo').textContent='مهمان: '+data.guest_name+' | اتاق: '+data.room_name+' | تاریخ خروج: '+jalali(data.check_out);
+  if(data.submitted){$('done').hidden=false;$('done').querySelector('p').textContent='نظر این اقامت قبلاً ثبت شده است. از همراهی شما سپاسگزاریم.';return;}
+  $('reviewForm').hidden=false;
+ }catch(error){showError(error.message);}
+}
+$('reviewForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const button=$('submitBtn');button.disabled=true;button.textContent='در حال ثبت نظر...';
+ $('message').className='';$('message').style.display='none';
+ try{
+  const body={token,cleanliness:Number($('cleanliness').value),staff:Number($('staff').value),room_quality:Number($('room_quality').value),overall:Number($('overall').value),comment:$('comment').value.trim()};
+  const response=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw new Error(data.error||'ثبت نظر انجام نشد.');
+  $('reviewForm').hidden=true;$('done').hidden=false;
+ }catch(error){$('message').textContent=error.message;$('message').className='err';}
+ finally{button.disabled=false;button.textContent='ثبت نظر و امتیاز';}
+});
+init();
+</script>
+</body>
+</html>
