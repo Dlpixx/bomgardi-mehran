@@ -106,9 +106,9 @@ form button{width:100%}
 <label>تعداد نوزاد</label>
 <input id="infants" type="number" min="0" value="0">
 <label>مبلغ کل (تومان)</label>
-<input id="amount" type="number" min="0" value="0">
+<input id="amount" type="text" inputmode="numeric" value="0">
 <label>مبلغ بیعانه (تومان)</label>
-<input id="deposit" type="number" min="0" value="0">
+<input id="deposit" type="text" inputmode="numeric" value="0">
 <label>توضیحات</label>
 <textarea id="notes" rows="3" placeholder="توضیحات رزرو..."></textarea>
 <button type="submit">ثبت رزرو</button>
@@ -135,6 +135,23 @@ SUPABASE_URL, SUPABASE_ANON_KEY
 );
 
 let rooms = [];
+ 
+function formatMoney(input) {
+  let digits = input.value
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/\D/g, '');
+
+  input.value = digits
+    ? Number(digits).toLocaleString('en-US')
+    : '';
+}
+
+document.getElementById('amount')
+  .addEventListener('input', e => formatMoney(e.target));
+
+document.getElementById('deposit')
+  .addEventListener('input', e => formatMoney(e.target));
 
 async function login(){
  const {error}=await db.auth.signInWithPassword({
@@ -182,7 +199,18 @@ async function loadRooms(){
  '<option value="">انتخاب اتاق</option>'+
  rooms.map(r=>`<option value="${r.id}">${r.name} - ظرفیت ${r.max_capacity} نفر</option>`).join('');
 }
+function formatJalaliDate(dateString) {
+  if (!dateString) return '';
 
+  const [y, m, d] = dateString.split('-').map(Number);
+  const date = new Date(y, m - 1, d, 12);
+
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
 async function loadReservations(){
  const {data,error}=await db.from('reservations')
  .select('*,rooms(name),guests(full_name,phone)')
@@ -196,7 +224,7 @@ async function loadReservations(){
  const html=(data||[]).map(r=>`
  <div class="reservation">
  <b>${r.guests?.full_name||'مهمان'}</b>
- <div>${r.rooms?.name||'اتاق'} | ${r.check_in} تا ${r.check_out}</div>
+ <div>${r.rooms?.name||'اتاق'} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
  <div class="muted">وضعیت: ${r.status}</div>
  </div>`).join('');
 
@@ -248,9 +276,8 @@ document.getElementById('bookingForm').addEventListener('submit',async e=>{
  guest=result.data;
  }
 
- const amount=Number(document.getElementById('amount').value);
- const deposit=Number(document.getElementById('deposit').value);
-
+ const amount=Number(document.getElementById('amount').value.replace(/,/g,'')) || 0;
+const deposit=Number(document.getElementById('deposit').value.replace(/,/g,'')) || 0;
  if(deposit>amount){
  msg.textContent='بیعانه نمی‌تواند از مبلغ کل بیشتر باشد.';
  return;
