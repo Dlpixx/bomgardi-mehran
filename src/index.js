@@ -126,6 +126,8 @@ async function handleApi(request, env, url) {
       databaseConfigured:configured, databaseReachable,
       databaseErrorCode, bookingEnabled:configured && databaseReachable,
       smsEnabled:!!(env.MELIPAYAMAK_API_URL && env.MELIPAYAMAK_FROM),
+      smsApiUrlConfigured:!!(env.MELIPAYAMAK_API_URL),
+      smsFromConfigured:!!(env.MELIPAYAMAK_FROM),
       adminSmsEnabled:!!(env.MELIPAYAMAK_ADMIN_PHONE), otpEnabled:false
     });
   }
