@@ -120,6 +120,7 @@ form button{width:100%}
 .status-free{background:#e4f4e8;color:#236b39}.status-booked{background:#fff0d8;color:#895500}.status-occupied{background:#f9dfdf;color:#9b2929}.status-cancelled{background:#eee;color:#666}
 .room{border-radius:13px;padding:13px;border:1px solid #eee2d5}.room-free{background:#f0f8f1;border-color:#cce6d0}.room-booked{background:#fff8eb;border-color:#f0d9a8}.room-occupied{background:#fff0f0;border-color:#efcaca}
 .action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.approve{background:#e4f4e8;color:#236b39}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
+.report-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}.report-kpi{background:#f5eee5;padding:13px;border-radius:12px;min-width:0}.report-kpi small{display:block;color:#806d5d;font-size:11px}.report-kpi strong{display:block;color:#80502e;font-size:19px;margin-top:7px;overflow-wrap:anywhere}.report-chart-row{margin:13px 0}.report-chart-head{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:6px}.report-track{height:10px;background:#eee5da;border-radius:20px;overflow:hidden}.report-fill{height:100%;background:#26966c;border-radius:20px}.report-table-wrap{overflow-x:auto}.report-table{width:100%;border-collapse:collapse;font-size:12px;min-width:490px}.report-table th,.report-table td{padding:10px 8px;border-bottom:1px solid #eee2d5;text-align:right;white-space:nowrap}.report-table th{color:#806d5d;background:#faf7f2}.report-note{font-size:11px;color:#887969;line-height:1.8;margin-top:10px}
 
 .calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 14px;flex-wrap:wrap}
 .calendar-toolbar button{padding:10px 13px}
@@ -166,6 +167,7 @@ form button{width:100%}
 <button onclick="showTab('booking')">رزرو جدید</button>
 <button onclick="showTab('list')">رزروها</button>
 <button onclick="showTab('calendar')">تقویم اشغال</button>
+<button onclick="showTab('reports')">گزارش منابع رزرو</button>
 <button class="secondary" onclick="logout()">خروج</button>
 </div>
 
@@ -255,6 +257,26 @@ form button{width:100%}
   </div>
   <div id="calendarGrid" class="calendar-scroll"></div>
   <p class="calendar-note">هر خانه رنگی نشان‌دهنده اشغال اتاق در آن روز است. تاریخ خروج روزِ خالی‌شدن اتاق محسوب می‌شود. برای دیدن نام مهمان و جزئیات رزرو، روی خانه رنگی لمس کنید.</p>
+ </div>
+</div>
+
+<div id="reports" class="hidden">
+ <div class="card">
+  <h2>گزارش منابع رزرو</h2>
+  <p class="muted">مقایسه تعداد درخواست‌ها، رزروهای فعال و عملکرد مالی هر کانال</p>
+  <label for="reportPeriod">بازه گزارش</label>
+  <select id="reportPeriod" onchange="renderSourceReport()">
+   <option value="all">تمام دوره</option>
+   <option value="month">ماه جاری</option>
+   <option value="30days">۳۰ روز اخیر</option>
+   <option value="year">سال جاری</option>
+  </select>
+  <div id="reportKpis" class="report-kpis"></div>
+  <h3 style="font-size:14px;margin:18px 0 10px">رزروهای فعال به تفکیک منبع</h3>
+  <div id="sourceChart"></div>
+  <h3 style="font-size:14px;margin:20px 0 10px">جزئیات هر منبع</h3>
+  <div id="sourceTable" class="report-table-wrap"></div>
+  <p class="report-note">مبنای بازه زمانی، تاریخ ثبت رزرو است. رزروهای لغوشده در تعداد درخواست‌ها و لغوها شمرده می‌شوند، اما مبلغ آن‌ها در جمع مبالغ فعال محاسبه نمی‌شود. رزروهایی که منبع ندارند با عنوان «ثبت نشده» نمایش داده می‌شوند.</p>
  </div>
 </div>
 </section>
@@ -372,10 +394,11 @@ async function startApp(){
 }
 
 function showTab(tab){
- ['home','rooms','booking','list','calendar'].forEach(id=>{
+ ['home','rooms','booking','list','calendar','reports'].forEach(id=>{
  document.getElementById(id).classList.toggle('hidden',id!==tab);
  });
  if(tab==='calendar') renderOccupancyCalendar();
+ if(tab==='reports') renderSourceReport();
 }
 
 async function loadRooms(){
@@ -619,6 +642,7 @@ async function loadReservations(){
  renderRoomStatus();
  renderReservationList();
  if(!document.getElementById('calendar').classList.contains('hidden')) renderOccupancyCalendar();
+ if(!document.getElementById('reports').classList.contains('hidden')) renderSourceReport();
  const recent=cachedReservations.slice(0,5);
  recentEl.innerHTML=recent.length?recent.map(r=>reservationCard(r,false)).join(''):'هنوز رزروی ثبت نشده است.';
 }
@@ -687,6 +711,65 @@ function reservationCard(r,actions=true){
   </div>`:''}
  </div>`;
 }
+function renderSourceReport(){
+ const period=document.getElementById('reportPeriod')?.value||'all';
+ const now=new Date();
+ let start=null;
+ if(period==='month') start=new Date(now.getFullYear(),now.getMonth(),1);
+ if(period==='30days'){start=new Date(now);start.setHours(0,0,0,0);start.setDate(start.getDate()-29);}
+ if(period==='year') start=new Date(now.getFullYear(),0,1);
+ const rows=cachedReservations.filter(r=>{
+  if(!start)return true;
+  if(!r.created_at)return false;
+  const created=new Date(r.created_at);
+  return Number.isFinite(created.getTime())&&created>=start&&created<=now;
+ });
+ const active=rows.filter(r=>r.status!=='cancelled');
+ const cancelled=rows.length-active.length;
+ const sum=(items,key)=>items.reduce((total,r)=>total+Number(r[key]||0),0);
+ const booked=sum(active,'total_amount');
+ const received=sum(active,'paid_amount');
+ const fmt=n=>new Intl.NumberFormat('fa-IR').format(Math.round(Number(n)||0));
+ document.getElementById('reportKpis').innerHTML=[
+  ['کل درخواست‌ها',rows.length],
+  ['رزروهای فعال',active.length],
+  ['مبلغ رزروهای فعال',fmt(booked)+' تومان'],
+  ['مبلغ دریافت‌شده',fmt(received)+' تومان']
+ ].map(([label,value])=>'<div class="report-kpi"><small>'+label+'</small><strong>'+value+'</strong></div>').join('');
+ const groups=new Map();
+ rows.forEach(r=>{
+  const source=String(r.booking_source||'').trim()||'ثبت نشده';
+  if(!groups.has(source))groups.set(source,{source,total:0,active:0,pending:0,confirmed:0,cancelled:0,booked:0,received:0});
+  const g=groups.get(source);
+  g.total++;
+  if(r.status==='cancelled'){g.cancelled++;return;}
+  g.active++;
+  if(r.status==='pending')g.pending++;
+  if(['confirmed','checked_in','checked_out'].includes(r.status))g.confirmed++;
+  g.booked+=Number(r.total_amount||0);
+  g.received+=Number(r.paid_amount||0);
+ });
+ const sorted=[...groups.values()].sort((a,b)=>b.active-a.active||b.total-a.total||a.source.localeCompare(b.source,'fa'));
+ const max=Math.max(1,...sorted.map(g=>g.active));
+ const chart=document.getElementById('sourceChart');
+ if(!sorted.length){
+  chart.innerHTML='<p class="muted">در این بازه هنوز رزروی ثبت نشده است.</p>';
+  document.getElementById('sourceTable').innerHTML='';
+  return;
+ }
+ chart.innerHTML=sorted.map(g=>{
+  const pct=g.active?Math.round(g.active/max*100):0;
+  return '<div class="report-chart-row"><div class="report-chart-head"><b>'+escapeHtml(g.source)+'</b><span>'+fmt(g.active)+' رزرو فعال</span></div><div class="report-track"><div class="report-fill" style="width:'+pct+'%"></div></div></div>';
+ }).join('');
+ const top=sorted.find(g=>g.active>0);
+ const topText=top?'بیشترین رزرو فعال: '+escapeHtml(top.source)+' ('+fmt(top.active)+' رزرو)':'در این بازه رزرو فعالی وجود ندارد.';
+ document.getElementById('sourceTable').innerHTML=
+  '<div class="muted" style="margin:8px 0 12px">'+topText+' | لغوشده در کل: '+fmt(cancelled)+'</div>'+
+  '<table class="report-table"><thead><tr><th>منبع رزرو</th><th>درخواست</th><th>فعال</th><th>لغو</th><th>مبلغ رزرو</th><th>دریافتی</th></tr></thead><tbody>'+
+  sorted.map(g=>'<tr><td><b>'+escapeHtml(g.source)+'</b><br><small class="muted">در انتظار: '+fmt(g.pending)+'</small></td><td>'+fmt(g.total)+'</td><td>'+fmt(g.active)+'</td><td>'+fmt(g.cancelled)+'</td><td>'+fmt(g.booked)+'</td><td>'+fmt(g.received)+'</td></tr>').join('')+
+  '</tbody></table>';
+}
+
 function renderReservationList(){
  const box=document.getElementById('reservationList');if(!box)return;
  const q=(document.getElementById('reservationSearch')?.value||'').trim().toLocaleLowerCase();
