@@ -413,6 +413,10 @@ document.getElementById('deposit')
 
 document.getElementById('editAmount').addEventListener('input', e => formatMoney(e.target));
 document.getElementById('editDeposit').addEventListener('input', e => formatMoney(e.target));
+document.getElementById('pricePerNight').addEventListener('input', e => formatMoney(e.target));
+document.getElementById('amount').addEventListener('input',()=>{document.getElementById('autoPrice').checked=false;});
+document.getElementById('autoPrice').addEventListener('change',updateBookingPricePreview);
+document.getElementById('roomSelect').addEventListener('change',updateBookingPricePreview);
 
 async function login(){
  const {error}=await db.auth.signInWithPassword({
@@ -761,6 +765,187 @@ function reservationCard(r,actions=true){
    ${actions&&r.review_token&&(r.status==='checked_out'||r.check_out<=todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
   </div>`:''}
  </div>`;
+}
+
+function renderDailyOperations(){
+ const today=todayISO();
+ const active=cachedReservations.filter(r=>r.status!=='cancelled');
+ const arrivals=active.filter(r=>r.check_in===today&&r.status!=='checked_out');
+ const departures=active.filter(r=>r.check_out===today&&r.status!=='checked_out');
+ const staying=active.filter(r=>r.status==='checked_in'&&r.check_in<=today&&r.check_out>today);
+ const fmt=n=>new Intl.NumberFormat('fa-IR').format(n);
+ document.getElementById('dailyDate').textContent=formatJalaliDate(today);
+ document.getElementById('dailyKpis').innerHTML=[
+  ['ورود امروز',arrivals.length],['خروج امروز',departures.length],['مهمان مقیم',staying.length]
+ ].map(([label,value])=>'<div class="daily-kpi"><small>'+label+'</small><strong>'+fmt(value)+'</strong></div>').join('');
+ const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مقیم',checked_out:'تخلیه شده'};
+ const row=(r,kind)=>{
+  const guest=escapeHtml(r.guests?.full_name||'مهمان'),room=escapeHtml(r.rooms?.name||'اتاق');
+  let action='';
+  if(kind==='arrival'&&r.status==='confirmed')action='<button class="approve" onclick="updateStayStatus(\''+r.id+'\',\'checked_in\')">ثبت ورود</button>';
+  else if(kind==='arrival'&&r.status==='pending')action='<span class="muted">در انتظار تأیید</span>';
+  else if(kind==='departure'&&r.status==='checked_in')action='<button class="danger" onclick="updateStayStatus(\''+r.id+'\',\'checked_out\')">ثبت خروج</button>';
+  else if(kind==='departure')action='<span class="muted">ورود ثبت نشده</span>';
+  return '<div class="daily-row"><span><b>'+guest+'</b><br>'+room+' · '+escapeHtml(r.guests?.phone||'—')+'<br><small class="muted">'+(names[r.status]||r.status)+'</small></span>'+action+'</div>';
+ };
+ document.getElementById('todayArrivals').innerHTML=arrivals.length?arrivals.map(r=>row(r,'arrival')).join(''):'<span class="muted">ورودی برای امروز ثبت نشده است.</span>';
+ document.getElementById('todayDepartures').innerHTML=departures.length?departures.map(r=>row(r,'departure')).join(''):'<span class="muted">خروجی برای امروز ثبت نشده است.</span>';
+ document.getElementById('currentlyStaying').innerHTML=staying.length?staying.map(r=>row(r,'staying')).join(''):'<span class="muted">در حال حاضر مهمان مقیمی ثبت نشده است.</span>';
+}
+async function updateStayStatus(id,status){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ const label=status==='checked_in'?'ورود مهمان':'خروج مهمان';
+ if(!confirm(label+' '+(r.guests?.full_name||'')+' ثبت شود؟'))return;
+ const {error}=await db.from('reservations').update({status}).eq('id',id);
+ if(error){alert('خطا در تغییر وضعیت: '+error.message);return;}
+ await loadReservations();
+}
+function printInvoice(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ const w=window.open('','_blank');
+ if(!w){alert('برای چاپ فاکتور، اجازه باز شدن پنجره جدید را فعال کنید.');return;}
+ const total=Number(r.total_amount||0),paid=Number(r.paid_amount||0),deposit=Number(r.deposit_amount||0),balance=Math.max(0,total-paid);
+ const status={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'}[r.status]||r.status;
+ const money=n=>Number(n).toLocaleString('fa-IR')+' تومان';
+ const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>فاکتور بوم‌گردی مهران</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#35271e;margin:0;padding:28px;line-height:2}.sheet{max-width:760px;margin:auto;border:1px solid #ddd1c3;padding:28px;border-radius:16px}.head{display:flex;justify-content:space-between;border-bottom:2px solid #80502e;padding-bottom:16px}.brand{font-size:24px;color:#56351f;font-weight:bold}.muted{color:#806d5d;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}.item{background:#f7f3ec;padding:12px;border-radius:9px}.label{font-size:11px;color:#806d5d}.value{font-weight:bold}.money{width:100%;border-collapse:collapse;margin-top:20px}.money td{padding:12px;border-bottom:1px solid #eee;text-align:right}.money tr:last-child{font-weight:bold;color:#56351f;font-size:18px}.foot{margin-top:30px;text-align:center;color:#806d5d;font-size:12px}@media print{body{padding:0}.sheet{border:0;border-radius:0}}</style></head><body><div class="sheet"><div class="head"><div><div class="brand">بوم‌گردی مهران</div><div class="muted">فاکتور / رسید اقامت</div></div><div class="muted">تاریخ صدور: '+escapeHtml(formatJalaliDate(todayISO()))+'<br>وضعیت: '+escapeHtml(status)+'</div></div><div class="grid"><div class="item"><div class="label">نام مهمان</div><div class="value">'+escapeHtml(r.guests?.full_name||'—')+'</div></div><div class="item"><div class="label">شماره تماس</div><div class="value">'+escapeHtml(r.guests?.phone||'—')+'</div></div><div class="item"><div class="label">اتاق</div><div class="value">'+escapeHtml(r.rooms?.name||'—')+'</div></div><div class="item"><div class="label">منبع رزرو</div><div class="value">'+escapeHtml(r.booking_source||'ثبت نشده')+'</div></div><div class="item"><div class="label">تاریخ ورود</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_in))+'</div></div><div class="item"><div class="label">تاریخ خروج</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_out))+'</div></div></div><table class="money"><tr><td>مبلغ کل اقامت</td><td>'+money(total)+'</td></tr><tr><td>بیعانه ثبت‌شده</td><td>'+money(deposit)+'</td></tr><tr><td>مجموع پرداختی</td><td>'+money(paid)+'</td></tr><tr><td>مانده قابل پرداخت</td><td>'+money(balance)+'</td></tr></table><div class="foot">از انتخاب بوم‌گردی مهران سپاسگزاریم 🌿<br>این رسید بر اساس اطلاعات ثبت‌شده در سامانه صادر شده است.</div></div><script>window.onload=()=>window.print()<\\/script></body></html>';
+ w.document.open();w.document.write(html);w.document.close();
+}
+async function copyReviewLink(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r?.review_token){alert('توکن نظرسنجی برای این رزرو موجود نیست.');return;}
+ const link=location.origin+'/feedback/?token='+encodeURIComponent(r.review_token);
+ try{await navigator.clipboard.writeText(link);alert('لینک اختصاصی رضایت مهمان کپی شد. برای مهمان ارسال کنید.');}
+ catch{prompt('لینک اختصاصی رضایت مهمان:',link);}
+}
+async function loadGuestReviews(){
+ const box=document.getElementById('guestReviewsList');box.textContent='در حال دریافت نظرها...';
+ const {data,error}=await db.from('guest_reviews').select('*, reservations(check_in,check_out,rooms(name),guests(full_name))').order('created_at',{ascending:false});
+ if(error){box.textContent='خطا در دریافت نظرها: '+error.message;return;}
+ if(!data?.length){box.textContent='هنوز نظری ثبت نشده است.';return;}
+ box.innerHTML=data.map(review=>{
+  const reservation=review.reservations||{};
+  const stars=n=>'★'.repeat(Number(n||0))+'☆'.repeat(5-Number(n||0));
+  return '<div class="price-rule"><b>'+escapeHtml(reservation.guests?.full_name||'مهمان')+'</b><div class="muted">'+escapeHtml(reservation.rooms?.name||'اتاق')+' · '+formatJalaliDate(reservation.check_in)+' تا '+formatJalaliDate(reservation.check_out)+'</div><div class="muted">نظافت: <span class="rating-stars">'+stars(review.cleanliness)+'</span></div><div class="muted">برخورد کارکنان: <span class="rating-stars">'+stars(review.staff)+'</span></div><div class="muted">کیفیت اتاق: <span class="rating-stars">'+stars(review.room_quality)+'</span></div><div><b>رضایت کلی: <span class="rating-stars">'+stars(review.overall)+'</span></b></div>'+(review.comment?'<p>'+escapeHtml(review.comment)+'</p>':'')+'<small class="muted">ثبت: '+escapeHtml(formatJalaliDate(String(review.created_at||'').slice(0,10)))+'</small></div>';
+ }).join('');
+}
+let pricingRules=[];
+const pricingTypeNames={normal:'عادی',weekend:'آخر هفته',holiday:'تعطیلات',nowruz:'نوروز',peak:'فصل شلوغ'};
+async function loadPricingRules(){
+ const box=document.getElementById('pricingRulesList');
+ const {data,error}=await db.from('room_pricing_rules').select('*, rooms(name)').order('created_at',{ascending:false});
+ if(error){box.textContent='برای فعال‌سازی قیمت‌گذاری، ابتدا دستور SQL ارتقا را در Supabase اجرا کنید. جزئیات: '+error.message;return;}
+ pricingRules=data||[];
+ renderPricingRules();updateBookingPricePreview();
+}
+function handlePriceRuleTypeChange(){
+ const type=document.getElementById('priceType').value;
+ document.getElementById('priceDateFields').classList.toggle('hidden',!['holiday','nowruz','peak'].includes(type));
+ const title=document.getElementById('priceTitle');
+ if(!title.value)title.value=({normal:'تعرفه عادی',weekend:'تعرفه آخر هفته',holiday:'تعرفه تعطیلات',nowruz:'تعرفه نوروز',peak:'تعرفه فصل شلوغ'})[type];
+}
+async function savePricingRule(){
+ const type=document.getElementById('priceType').value,roomId=document.getElementById('priceRoom').value||null;
+ const price=Number(document.getElementById('pricePerNight').value.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,،\\s]/g,''));
+ const start=document.getElementById('priceStart').value||null,end=document.getElementById('priceEnd').value||null;
+ const title=document.getElementById('priceTitle').value.trim()||pricingTypeNames[type],msg=document.getElementById('pricingMessage');
+ if(!Number.isFinite(price)||price<0){msg.textContent='مبلغ هر شب را درست وارد کنید.';return;}
+ if(['holiday','nowruz','peak'].includes(type)&&(!start||!end||end<start)){msg.textContent='برای این نوع تعرفه، بازه شروع و پایان معتبر انتخاب کنید.';return;}
+ if(type==='weekend'&&start&&end&&end<start){msg.textContent='پایان بازه باید بعد از شروع باشد.';return;}
+ const payload={room_id:roomId,rule_type:type,title,price_per_night:price,start_date:start,end_date:end,days_of_week:type==='weekend'?[4,5]:null};
+ const {error}=await db.from('room_pricing_rules').insert(payload);
+ if(error){msg.textContent='خطا در ذخیره تعرفه: '+error.message;return;}
+ msg.textContent='تعرفه با موفقیت ذخیره شد.';
+ document.getElementById('priceTitle').value='';document.getElementById('pricePerNight').value='';
+ document.getElementById('priceStart').value='';document.getElementById('priceStartDisplay').value='';
+ document.getElementById('priceEnd').value='';document.getElementById('priceEndDisplay').value='';
+ await loadPricingRules();
+}
+function renderPricingRules(){
+ const box=document.getElementById('pricingRulesList');if(!box)return;
+ if(!pricingRules.length){box.innerHTML='<p class="muted">هنوز تعرفه‌ای تعریف نشده است.</p>';return;}
+ box.innerHTML=pricingRules.map(rule=>{
+  const room=rule.rooms?.name||'همه اتاق‌ها';
+  const dates=rule.start_date?(formatJalaliDate(rule.start_date)+' تا '+formatJalaliDate(rule.end_date||rule.start_date)):(rule.rule_type==='weekend'?'هر پنجشنبه و جمعه':'همه تاریخ‌ها');
+  return '<div class="price-rule"><div class="price-rule-head"><b>'+escapeHtml(rule.title)+'</b><button class="danger" onclick="deletePricingRule(\''+rule.id+'\')">حذف</button></div><div class="muted">'+escapeHtml(room)+' · '+(pricingTypeNames[rule.rule_type]||rule.rule_type)+' · '+escapeHtml(dates)+'</div><strong>'+Number(rule.price_per_night).toLocaleString('fa-IR')+' تومان / هر شب</strong></div>';
+ }).join('');
+}
+async function deletePricingRule(id){
+ if(!confirm('این تعرفه حذف شود؟'))return;
+ const {error}=await db.from('room_pricing_rules').delete().eq('id',id);
+ if(error){alert('خطا در حذف تعرفه: '+error.message);return;}
+ await loadPricingRules();
+}
+function getPriceForNight(roomId,iso){
+ const day=new Date(iso+'T12:00:00Z').getUTCDay(),priority={nowruz:50,holiday:40,peak:30,weekend:20,normal:10};
+ const matched=pricingRules.filter(rule=>{
+  if(rule.room_id&&String(rule.room_id)!==String(roomId))return false;
+  if(rule.start_date&&iso<rule.start_date)return false;
+  if(rule.end_date&&iso>rule.end_date)return false;
+  if(rule.rule_type==='weekend'&&day!==4&&day!==5)return false;
+  if(['holiday','nowruz','peak'].includes(rule.rule_type)&&(!rule.start_date||!rule.end_date))return false;
+  return true;
+ }).sort((a,b)=>(priority[b.rule_type]||0)-(priority[a.rule_type]||0)||Number(!!b.room_id)-Number(!!a.room_id)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+ return matched.length?Number(matched[0].price_per_night):null;
+}
+function calculateStayPrice(roomId,checkIn,checkOut){
+ if(!roomId||!checkIn||!checkOut||checkOut<=checkIn)return null;
+ let total=0,nights=0,missing=[];
+ const date=new Date(checkIn+'T12:00:00Z'),end=new Date(checkOut+'T12:00:00Z');
+ while(date<end&&nights<90){
+  const iso=date.toISOString().slice(0,10),price=getPriceForNight(roomId,iso);
+  if(price===null)missing.push(formatJalaliDate(iso));else total+=price;
+  nights++;date.setUTCDate(date.getUTCDate()+1);
+ }
+ return nights&&nights<90&&!missing.length?{total,nights}:{total:null,nights,missing};
+}
+function updateBookingPricePreview(){
+ const auto=document.getElementById('autoPrice');if(!auto?.checked)return;
+ const roomId=document.getElementById('roomSelect').value;
+ const result=calculateStayPrice(roomId,document.getElementById('checkin').value,document.getElementById('checkout').value);
+ const preview=document.getElementById('pricePreview');
+ if(!result){preview.textContent='با انتخاب اتاق و تاریخ، مبلغ اقامت بر اساس تعرفه‌ها محاسبه می‌شود.';return;}
+ if(result.total===null){preview.textContent='برای بعضی شب‌ها تعرفه ثبت نشده است ('+result.missing.join('، ')+'). مبلغ را دستی وارد کنید یا تعرفه‌ها را کامل کنید.';return;}
+ document.getElementById('amount').value=result.total.toLocaleString('en-US');
+ preview.textContent=result.nights+' شب × تعرفه‌های ثبت‌شده = '+result.total.toLocaleString('fa-IR')+' تومان';
+}
+async function fetchAllRows(table,select='*'){
+ const rows=[],pageSize=1000;
+ for(let offset=0;offset<100000;offset+=pageSize){
+  const {data,error}=await db.from(table).select(select).range(offset,offset+pageSize-1);
+  if(error)throw error;rows.push(...(data||[]));if(!data||data.length<pageSize)break;
+ }
+ return rows;
+}
+async function getBackupData(){
+ const [reservations,guests,roomRows,rates,reviews]=await Promise.all([
+  fetchAllRows('reservations','*, rooms(name), guests(full_name,phone)'),
+  fetchAllRows('guests','*'),fetchAllRows('rooms','*'),
+  fetchAllRows('room_pricing_rules','*, rooms(name)'),
+  fetchAllRows('guest_reviews','*, reservations(check_in,check_out,rooms(name),guests(full_name))')
+ ]);
+ return {generated_at:new Date().toISOString(),service:'بوم‌گردی مهران',reservations,guests,rooms:roomRows,pricing_rules:rates,guest_reviews:reviews};
+}
+function downloadBlob(content,type,filename){
+ const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+async function downloadBackupJSON(){
+ const msg=document.getElementById('backupMessage');msg.textContent='در حال آماده‌سازی نسخه پشتیبان...';
+ try{const data=await getBackupData();downloadBlob(JSON.stringify(data,null,2),'application/json;charset=utf-8','bomgardi-mehran-backup-'+todayISO()+'.json');msg.textContent='نسخه پشتیبان با موفقیت آماده و دانلود شد.';}
+ catch(error){msg.textContent='خطا در تهیه پشتیبان: '+error.message;}
+}
+async function exportExcel(){
+ const msg=document.getElementById('backupMessage');msg.textContent='در حال آماده‌سازی فایل اکسل...';
+ try{
+  if(!window.XLSX)throw new Error('کتابخانه ساخت اکسل بارگذاری نشده است. اتصال اینترنت را بررسی و دوباره تلاش کنید.');
+  const data=await getBackupData(),wb=XLSX.utils.book_new();
+  const add=(name,rows)=>{const ws=XLSX.utils.json_to_sheet(rows);XLSX.utils.book_append_sheet(wb,ws,name);};
+  add('رزروها',data.reservations.map(r=>({'نام مهمان':r.guests?.full_name||'','موبایل':r.guests?.phone||'','اتاق':r.rooms?.name||'','ورود':r.check_in,'خروج':r.check_out,'وضعیت':r.status,'منبع رزرو':r.booking_source||'','بزرگسال':r.adults,'کودک':r.children,'نوزاد':r.infants,'مبلغ کل':Number(r.total_amount||0),'بیعانه':Number(r.deposit_amount||0),'پرداخت‌شده':Number(r.paid_amount||0),'مانده':Math.max(0,Number(r.total_amount||0)-Number(r.paid_amount||0)),'توضیحات':r.notes||''})));
+  add('مهمانان',data.guests.map(g=>({'نام':g.full_name||'','موبایل':g.phone||'','شناسه':g.id,'ثبت':g.created_at||''})));
+  add('اتاق‌ها',data.rooms.map(r=>({'نام اتاق':r.name||'','ظرفیت':r.capacity,'حداکثر ظرفیت':r.max_capacity,'فعال':r.is_active,'توضیحات':r.description||''})));
+  add('تعرفه‌ها',data.pricing_rules.map(p=>({'اتاق':p.rooms?.name||'همه اتاق‌ها','نوع تعرفه':pricingTypeNames[p.rule_type]||p.rule_type,'عنوان':p.title,'قیمت هر شب':Number(p.price_per_night||0),'شروع':p.start_date||'','پایان':p.end_date||'','روزهای هفته':(p.days_of_week||[]).join(',')})));
+  add('نظرات',data.guest_reviews.map(v=>({'مهمان':v.reservations?.guests?.full_name||'','اتاق':v.reservations?.rooms?.name||'','نظافت':v.cleanliness,'برخورد کارکنان':v.staff,'کیفیت اتاق':v.room_quality,'رضایت کلی':v.overall,'نظر':v.comment||'','تاریخ ثبت':v.created_at})));
+  XLSX.writeFile(wb,'bomgardi-mehran-'+todayISO()+'.xlsx');msg.textContent='فایل اکسل با موفقیت آماده و دانلود شد.';
+ }catch(error){msg.textContent='خطا در تهیه اکسل: '+error.message;}
 }
 function renderSourceReport(){
  const period=document.getElementById('reportPeriod')?.value||'all';
