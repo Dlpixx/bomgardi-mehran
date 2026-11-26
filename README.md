@@ -20,3 +20,11 @@ The experimental admin panel now includes:
 - JSON backup and multi-sheet XLSX export for reservations, guests, rooms, pricing rules, and reviews. Financial exports include reservation total, deposit, paid total, and balance; individual payment transactions are not separately stored in the current schema.
 
 Before using pricing rules or guest feedback, run `database/upgrade-guesthouse-features.sql` once in the Supabase SQL Editor. This adds reservation review tokens and creates the pricing and review tables. Existing reservations receive review tokens without deleting booking data.
+
+## Guest portal
+
+The public home page includes a separate guest login at `/guest/`. A guest signs in with the reservation phone number, the 8-character booking tracking code, and a one-time 48-character random access key. Only reservations with status `confirmed`, `checked_in`, or `checked_out` can open the guest portal; pending and cancelled reservations are denied.
+
+New online bookings receive the access key once on the booking success screen. The database stores only its SHA-256 hash. If a guest loses the key, an authenticated manager can issue a replacement from the reservation card; issuing a new key invalidates the previous one.
+
+Before deploying this feature, run `database/upgrade-guest-login.sql` once in the Supabase SQL Editor. Existing reservations have no guest key until the manager issues one after approval.
