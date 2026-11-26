@@ -60,7 +60,7 @@ function normalizePhone(value) {
 
 async function sendMelipayamakSms(env, to, text) {
   const phone = normalizePhone(to);
-  if (!/^09\\d{9}$/.test(phone)) {
+  if (!(phone.length === 11 && phone.startsWith("09") && /^[0-9]+$/.test(phone))) {
     return { ok:false, reason:"INVALID_RECIPIENT" };
   }
   if (!env.MELIPAYAMAK_API_URL || !env.MELIPAYAMAK_FROM) {
@@ -248,7 +248,7 @@ async function handleApi(request, env, url) {
         ];
 
         const adminPhone = normalizePhone(env.MELIPAYAMAK_ADMIN_PHONE || "");
-        if (/^09\\d{9}$/.test(adminPhone)) {
+        if (adminPhone.length === 11 && adminPhone.startsWith("09") && /^[0-9]+$/.test(adminPhone)) {
           const adminMessage = `بوم‌گردی مهران
 درخواست رزرو جدید
 مهمان: ${fullName}
