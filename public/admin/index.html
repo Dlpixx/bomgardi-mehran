@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#56351f">
 <title>بوم‌گردی مهران</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f7f3ec;color:#35271e;font-family:Tahoma,Arial,sans-serif}
@@ -121,6 +122,7 @@ form button{width:100%}
 .room{border-radius:13px;padding:13px;border:1px solid #eee2d5}.room-free{background:#f0f8f1;border-color:#cce6d0}.room-booked{background:#fff8eb;border-color:#f0d9a8}.room-occupied{background:#fff0f0;border-color:#efcaca}
 .action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.approve{background:#e4f4e8;color:#236b39}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
 .report-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}.report-kpi{background:#f5eee5;padding:13px;border-radius:12px;min-width:0}.report-kpi small{display:block;color:#806d5d;font-size:11px}.report-kpi strong{display:block;color:#80502e;font-size:19px;margin-top:7px;overflow-wrap:anywhere}.report-chart-row{margin:13px 0}.report-chart-head{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:6px}.report-track{height:10px;background:#eee5da;border-radius:20px;overflow:hidden}.report-fill{height:100%;background:#26966c;border-radius:20px}.report-table-wrap{overflow-x:auto}.report-table{width:100%;border-collapse:collapse;font-size:12px;min-width:490px}.report-table th,.report-table td{padding:10px 8px;border-bottom:1px solid #eee2d5;text-align:right;white-space:nowrap}.report-table th{color:#806d5d;background:#faf7f2}.report-note{font-size:11px;color:#887969;line-height:1.8;margin-top:10px}
+.daily-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}.daily-kpi{background:#f5eee5;padding:12px;border-radius:12px}.daily-kpi small{display:block;color:#806d5d;font-size:11px}.daily-kpi strong{display:block;color:#80502e;font-size:22px;margin-top:5px}.daily-list{border-top:1px solid #eee2d5;padding:10px 0}.daily-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0e8df;font-size:12px}.daily-row button{padding:8px 10px;font-size:11px;white-space:nowrap}.price-rule{border:1px solid #eee2d5;border-radius:12px;padding:12px;margin:9px 0}.price-rule-head{display:flex;justify-content:space-between;gap:8px;align-items:center}.price-rule button{padding:7px 10px;font-size:11px}.price-preview{background:#f0f8f1;color:#236b39;border-radius:10px;padding:10px;font-size:12px;margin:8px 0}.rating-stars{color:#b27a25;letter-spacing:2px}.backup-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}@media(max-width:520px){.daily-grid{grid-template-columns:1fr}.backup-actions{grid-template-columns:1fr}}
 
 .calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 14px;flex-wrap:wrap}
 .calendar-toolbar button{padding:10px 13px}
@@ -168,6 +170,9 @@ form button{width:100%}
 <button onclick="showTab('list')">رزروها</button>
 <button onclick="showTab('calendar')">تقویم اشغال</button>
 <button onclick="showTab('reports')">گزارش منابع رزرو</button>
+<button onclick="showTab('pricing')">قیمت‌گذاری اتاق‌ها</button>
+<button onclick="showTab('feedbacks')">نظرات مهمانان</button>
+<button onclick="showTab('backups')">پشتیبان‌گیری و اکسل</button>
 <button class="secondary" onclick="logout()">خروج</button>
 </div>
 
@@ -179,6 +184,13 @@ form button{width:100%}
 <div class="stat">تعداد اتاق‌ها<strong>۹</strong></div>
 <div class="stat">رزروهای ثبت‌شده<strong id="total">۰</strong></div>
 </div>
+</div>
+<div class="card">
+<h2>ورود و خروج امروز · <span id="dailyDate"></span></h2>
+<div class="daily-grid" id="dailyKpis"></div>
+<h3 style="font-size:14px">ورودهای امروز</h3><div id="todayArrivals" class="daily-list"></div>
+<h3 style="font-size:14px;margin-top:18px">خروج‌های امروز</h3><div id="todayDepartures" class="daily-list"></div>
+<h3 style="font-size:14px;margin-top:18px">مهمانان مقیم</h3><div id="currentlyStaying" class="daily-list"></div>
 </div>
 <div class="card">
 <h2>آخرین رزروها</h2>
@@ -223,6 +235,8 @@ form button{width:100%}
 <input id="amount" type="text" inputmode="numeric" value="0">
 <label>مبلغ بیعانه (تومان)</label>
 <input id="deposit" type="text" inputmode="numeric" value="0">
+<label style="display:flex;align-items:center;gap:8px"><input id="autoPrice" type="checkbox" checked style="width:auto;margin:0"> محاسبه خودکار مبلغ براساس تعرفه اتاق</label>
+<div id="pricePreview" class="price-preview">با انتخاب اتاق و تاریخ، مبلغ اقامت بر اساس تعرفه‌ها محاسبه می‌شود.</div>
 <label>توضیحات</label>
 <textarea id="notes" rows="3" placeholder="توضیحات رزرو..."></textarea>
 <button type="submit">ثبت رزرو</button>
@@ -277,6 +291,35 @@ form button{width:100%}
   <h3 style="font-size:14px;margin:20px 0 10px">جزئیات هر منبع</h3>
   <div id="sourceTable" class="report-table-wrap"></div>
   <p class="report-note">مبنای بازه زمانی، تاریخ ثبت رزرو است. رزروهای لغوشده در تعداد درخواست‌ها و لغوها شمرده می‌شوند، اما مبلغ آن‌ها در جمع مبالغ فعال محاسبه نمی‌شود. رزروهایی که منبع ندارند با عنوان «ثبت نشده» نمایش داده می‌شوند.</p>
+ </div>
+
+<div id="pricing" class="hidden">
+ <div class="card">
+  <h2>مدیریت تعرفه اتاق‌ها</h2>
+  <p class="muted">برای هر اتاق تعرفه عادی و آخر هفته تعریف کن؛ تعطیلات، نوروز و فصل‌های شلوغ را هم با بازه تاریخ مشخص کن. امکان تعریف تعرفه برای همه اتاق‌ها نیز وجود دارد.</p>
+  <label>اتاق</label><select id="priceRoom"><option value="">همه اتاق‌ها</option></select>
+  <label>نوع تعرفه</label><select id="priceType" onchange="handlePriceRuleTypeChange()"><option value="normal">قیمت عادی (پایه)</option><option value="weekend">آخر هفته (پنجشنبه و جمعه)</option><option value="holiday">تعطیلات</option><option value="nowruz">نوروز</option><option value="peak">فصل شلوغ</option></select>
+  <label>عنوان تعرفه</label><input id="priceTitle" placeholder="مثلاً تعرفه عادی اتاق شاه‌نشین">
+  <div id="priceDateFields" class="hidden">
+   <label>شروع بازه</label><input id="priceStartDisplay" type="text" readonly placeholder="انتخاب تاریخ شروع" onclick="openJalaliPicker('priceStart')"><input id="priceStart" type="hidden">
+   <label>پایان بازه</label><input id="priceEndDisplay" type="text" readonly placeholder="انتخاب تاریخ پایان" onclick="openJalaliPicker('priceEnd')"><input id="priceEnd" type="hidden">
+  </div>
+  <label>قیمت هر شب (تومان)</label><input id="pricePerNight" type="text" inputmode="numeric" placeholder="مثلاً ۲۵۰۰۰۰۰">
+  <button onclick="savePricingRule()">ذخیره تعرفه</button>
+  <div id="pricingMessage" class="muted"></div>
+ </div>
+ <div class="card"><h2>تعرفه‌های ثبت‌شده</h2><div id="pricingRulesList">در حال دریافت تعرفه‌ها...</div></div>
+</div>
+
+<div id="feedbacks" class="hidden">
+ <div class="card"><h2>نظرها و رضایت مهمانان</h2><p class="muted">بازخوردهای ثبت‌شده پس از پایان اقامت</p><div id="guestReviewsList">در حال دریافت نظرها...</div></div>
+</div>
+
+<div id="backups" class="hidden">
+ <div class="card"><h2>پشتیبان‌گیری و خروجی اطلاعات</h2><p class="muted">نسخه پشتیبان را در گوشی یا کامپیوتر خود ذخیره و در محل امن نگهداری کنید.</p>
+  <div class="backup-actions"><button onclick="downloadBackupJSON()">دریافت پشتیبان کامل (JSON)</button><button onclick="exportExcel()">خروجی اکسل (XLSX)</button></div>
+  <div id="backupMessage" class="muted" style="margin-top:12px"></div>
+  <p class="report-note">فایل شامل رزروها، مشخصات مهمانان، اتاق‌ها، تعرفه‌ها، نظرات و مبالغ کل، بیعانه، پرداخت‌شده و مانده است. اطلاعات پرداخت در ساختار فعلی به‌صورت جمع پرداختی هر رزرو نگهداری می‌شود، نه ریزتراکنش‌های جداگانه.</p>
  </div>
 </div>
 </section>
@@ -391,14 +434,17 @@ async function startApp(){
  document.getElementById('dashboard').classList.remove('hidden');
  await loadRooms();
  await loadReservations();
+ await loadPricingRules();
 }
 
 function showTab(tab){
- ['home','rooms','booking','list','calendar','reports'].forEach(id=>{
+ ['home','rooms','booking','list','calendar','reports','pricing','feedbacks','backups'].forEach(id=>{
  document.getElementById(id).classList.toggle('hidden',id!==tab);
  });
  if(tab==='calendar') renderOccupancyCalendar();
  if(tab==='reports') renderSourceReport();
+ if(tab==='pricing') renderPricingRules();
+ if(tab==='feedbacks') loadGuestReviews();
 }
 
 async function loadRooms(){
@@ -407,10 +453,11 @@ async function loadRooms(){
  rooms=data||[];
  document.getElementById('roomSelect').innerHTML='<option value="">انتخاب اتاق</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)} - ظرفیت ${r.max_capacity} نفر</option>`).join('');
  document.getElementById('editRoom').innerHTML=rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+  document.getElementById('priceRoom').innerHTML='<option value="">همه اتاق‌ها</option>'+rooms.map(r=>'<option value="'+r.id+'">'+escapeHtml(r.name)+'</option>').join('');
  renderRoomStatus();
 }
 function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function todayISO(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=t=>parts.find(p=>p.type===t)?.value;return `${get('year')}-${get('month')}-${get('day')}`;}
 let cachedReservations=[];
 function renderRoomStatus(){
  const today=todayISO();
@@ -620,6 +667,7 @@ function confirmJalaliPicker(){
  document.getElementById(
   currentPickerField+'Display'
  ).value=formatJalaliDate(iso);
+ if(['checkin','checkout'].includes(currentPickerField)) updateBookingPricePreview();
 
  closeJalaliPicker();
 }
@@ -643,6 +691,7 @@ async function loadReservations(){
  renderReservationList();
  if(!document.getElementById('calendar').classList.contains('hidden')) renderOccupancyCalendar();
  if(!document.getElementById('reports').classList.contains('hidden')) renderSourceReport();
+ renderDailyOperations();
  const recent=cachedReservations.slice(0,5);
  recentEl.innerHTML=recent.length?recent.map(r=>reservationCard(r,false)).join(''):'هنوز رزروی ثبت نشده است.';
 }
@@ -708,6 +757,8 @@ function reservationCard(r,actions=true){
   ${(r.status==='pending'||(actions&&!['cancelled','checked_out'].includes(r.status)))?`<div class="action-row">
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
    ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+   ${actions&&r.status!=='cancelled'?`<button class="secondary" onclick="printInvoice('${r.id}')">فاکتور / رسید</button>`:''}
+   ${actions&&r.review_token&&(r.status==='checked_out'||r.check_out<=todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
   </div>`:''}
  </div>`;
 }
