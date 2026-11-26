@@ -200,6 +200,9 @@ form button{width:100%}
 <input id="guestName" required placeholder="نام مهمان">
 <label>شماره موبایل</label>
 <input id="phone" required inputmode="tel" placeholder="09xxxxxxxxx">
+<label>منبع رزرو (اختیاری)</label>
+<input id="bookingSource" list="bookingSources" placeholder="مثلاً جاباما، اسنپ‌تریپ، تماس تلفنی...">
+<datalist id="bookingSources"><option value="جاباما"><option value="اسنپ‌تریپ"><option value="مستر بلیط"><option value="تماس تلفنی"><option value="واتساپ"><option value="اینستاگرام"><option value="مراجعه حضوری"><option value="سایت بوم‌گردی مهران"><option value="سایر"></datalist>
 <label>انتخاب اتاق</label>
 <select id="roomSelect" required></select>
 <label>تاریخ ورود</label>
@@ -272,7 +275,8 @@ form button{width:100%}
   <label>نوزاد</label><input id="editInfants" type="number" min="0">
   <label>مبلغ کل (تومان)</label><input id="editAmount" type="text" inputmode="numeric">
   <label>بیعانه (تومان)</label><input id="editDeposit" type="text" inputmode="numeric">
-  <label>توضیحات</label><textarea id="editNotes" rows="3"></textarea>
+  <label>منبع رزرو (اختیاری)</label><input id="editBookingSource" list="bookingSources" placeholder="مثلاً جاباما یا تماس تلفنی">
+   <label>توضیحات</label><textarea id="editNotes" rows="3"></textarea>
   <div class="picker-actions"><button class="secondary" onclick="closeEditModal()">انصراف</button><button onclick="saveReservationEdit()">ذخیره تغییرات</button></div>
   <div id="editMessage" class="muted"></div>
  </div>
@@ -665,7 +669,7 @@ function showCalendarReservation(id){
  const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
  const room=rooms.find(x=>String(x.id)===String(r.room_id));
  const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
- alert(`مهمان: ${r.guests?.full_name||'—'}\nاتاق: ${room?.name||'—'}\nورود: ${formatJalaliDate(r.check_in)}\nخروج: ${formatJalaliDate(r.check_out)}\nوضعیت: ${names[r.status]||r.status}\nموبایل: ${r.guests?.phone||'—'}`);
+ alert(`مهمان: ${r.guests?.full_name||'—'}\nاتاق: ${room?.name||'—'}\nورود: ${formatJalaliDate(r.check_in)}\nخروج: ${formatJalaliDate(r.check_out)}\nوضعیت: ${names[r.status]||r.status}\nموبایل: ${r.guests?.phone||'—'}\nمنبع رزرو: ${r.booking_source||'ثبت نشده'}`);
 }
 
 function reservationCard(r,actions=true){
@@ -675,6 +679,7 @@ function reservationCard(r,actions=true){
   <b>${escapeHtml(r.guests?.full_name||'مهمان')}</b>
   <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
   <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
+  <div class="muted">منبع رزرو: ${escapeHtml(r.booking_source||'ثبت نشده')}</div>
   <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
   ${(r.status==='pending'||(actions&&!['cancelled','checked_out'].includes(r.status)))?`<div class="action-row">
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
@@ -686,7 +691,7 @@ function renderReservationList(){
  const box=document.getElementById('reservationList');if(!box)return;
  const q=(document.getElementById('reservationSearch')?.value||'').trim().toLocaleLowerCase();
  const filtered=cachedReservations.filter(r=>{
-  const hay=[r.guests?.full_name,r.guests?.phone,r.rooms?.name,r.status,r.check_in,r.check_out].join(' ').toLocaleLowerCase();
+  const hay=[r.guests?.full_name,r.guests?.phone,r.rooms?.name,r.booking_source,r.status,r.check_in,r.check_out].join(' ').toLocaleLowerCase();
   return hay.includes(q);
  });
  box.innerHTML=filtered.length?filtered.map(r=>reservationCard(r,true)).join(''):'رزروی با این مشخصات پیدا نشد.';
@@ -705,6 +710,7 @@ function openEditModal(id){
  document.getElementById('editAmount').value=Number(r.total_amount||0).toLocaleString('en-US');
  document.getElementById('editDeposit').value=Number(r.deposit_amount||0).toLocaleString('en-US');
  document.getElementById('editNotes').value=r.notes||'';
+ document.getElementById('editBookingSource').value=r.booking_source||'';
  document.getElementById('editMessage').textContent='';
  document.getElementById('editModal').classList.remove('hidden');
 }
@@ -721,7 +727,8 @@ async function saveReservationEdit(){
  if(!room||!check_in||!check_out||check_out<=check_in){msg.textContent='اتاق و تاریخ‌های معتبر را انتخاب کن.';return;}
  if(adults<1||adults+children>Number(room.max_capacity)){msg.textContent='تعداد مسافران از ظرفیت اتاق بیشتر است.';return;}
  if(total_amount<Number(r.paid_amount||0)||deposit_amount<0||deposit_amount>total_amount||deposit_amount>Number(r.paid_amount||0)){msg.textContent='مبلغ کل نباید از مبلغ پرداخت‌شده کمتر باشد و بیعانه نیز باید از مبلغ کل و پرداختی بیشتر نباشد.';return;}
- const {error}=await db.from('reservations').update({room_id:room.id,check_in,check_out,adults,children,infants,total_amount,deposit_amount,notes:document.getElementById('editNotes').value}).eq('id',id);
+ const booking_source=document.getElementById('editBookingSource').value.trim()||null;
+ const {error}=await db.from('reservations').update({room_id:room.id,check_in,check_out,adults,children,infants,total_amount,deposit_amount,booking_source,notes:document.getElementById('editNotes').value}).eq('id',id);
  if(error){msg.textContent='خطا در ذخیره: '+error.message;return;}
  closeEditModal();await loadReservations();alert('تغییرات رزرو ذخیره شد.');
 }
@@ -814,6 +821,7 @@ const deposit=Number(document.getElementById('deposit').value.replace(/,/g,'')) 
  deposit_amount:deposit,
  paid_amount:deposit,
  status:'pending',
+ booking_source:document.getElementById('bookingSource').value.trim()||null,
  notes:document.getElementById('notes').value
  });
 
@@ -827,6 +835,7 @@ const deposit=Number(document.getElementById('deposit').value.replace(/,/g,'')) 
  document.getElementById('adults').value=1;
  document.getElementById('amount').value=0;
  document.getElementById('deposit').value=0;
+ document.getElementById('bookingSource').value='';
  await loadReservations();
 });
 
