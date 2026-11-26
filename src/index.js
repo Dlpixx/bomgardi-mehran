@@ -68,9 +68,25 @@ async function handleApi(request, env, url) {
     }});
   }
   if (url.pathname === "/api/health" && request.method === "GET") {
+    const configured = !!config(env);
+    let databaseReachable = false;
+    let databaseErrorCode = null;
+    if (configured) {
+      try {
+        await supabase(env, "rooms?select=id&limit=1");
+        databaseReachable = true;
+      } catch (error) {
+        databaseErrorCode = error.code || (error.status ? String(error.status) : "DB_ERROR");
+        console.error("SUPABASE_HEALTH_CHECK_FAILED", {
+          code: error.code || null, status: error.status || null,
+          message: String(error.message || "unknown").slice(0, 300)
+        });
+      }
+    }
     return json({
       ok:true, service:"bomgardi-mehran", mode:"experimental",
-      databaseConfigured:!!config(env), bookingEnabled:!!config(env),
+      databaseConfigured:configured, databaseReachable,
+      databaseErrorCode, bookingEnabled:configured && databaseReachable,
       smsEnabled:false, otpEnabled:false
     });
   }
@@ -104,7 +120,11 @@ async function handleApi(request, env, url) {
         available:checkIn && checkOut ? !busyIds.includes(room.id) : null
       }))});
     } catch (error) {
-      return json({ok:false,error:"دریافت اتاق‌ها با خطا مواجه شد."},500);
+      console.error("ROOMS_QUERY_FAILED", {
+        code: error.code || null, status: error.status || null,
+        message: String(error.message || "unknown").slice(0, 300)
+      });
+      return json({ok:false,error:"دریافت اتاق‌ها با خطا مواجه شد.", diagnostic_code:error.code || (error.status ? String(error.status) : "DB_ERROR")},500);
     }
   }
 
