@@ -28,3 +28,11 @@ The public home page includes a separate guest login at `/guest/`. A guest signs
 New online bookings receive the access key once on the booking success screen. The database stores only its SHA-256 hash. If a guest loses the key, an authenticated manager can issue a replacement from the reservation card; issuing a new key invalidates the previous one.
 
 Before deploying this feature, run `database/upgrade-guest-login.sql` once in the Supabase SQL Editor. Existing reservations have no guest key until the manager issues one after approval.
+
+## Manual bank transfer for guest reservations
+
+The guest portal displays the Mehr Iran Bank transfer details for Erfan Doost Gol (card, account, and IBAN), with one-tap copy buttons and the contact number 09924950826. Guests do not submit payment amounts, dates, tracking numbers, or receipts through the website. The transfer panel is hidden when the reservation balance is fully settled.
+
+An authenticated manager confirms a bank transfer from the reservation card. The amount is validated against the outstanding balance and recorded atomically in `reservation_payments`; the reservation's `paid_amount` is updated in the same database transaction. The admin reservation card shows the confirmed transfer history.
+
+Before using this feature, run `database/upgrade-bank-transfer-payments.sql` once in the Supabase SQL Editor. This creates the payment ledger and the manager-only confirmation function. The manager must verify the transfer in the bank account before confirming it in the dashboard.
