@@ -15,7 +15,7 @@ The admin dashboard includes a booking-source report with all-time, current Pers
 The experimental admin panel now includes:
 - Daily arrivals, departures, and checked-in guest lists with check-in/check-out actions.
 - Printable guest invoices and payment receipts.
-- Per-room and global nightly pricing rules: normal, Thursday/Friday weekend, holidays, Nowruz, and peak periods. Special date ranges override weekend and normal rates; room-specific rules override global rules at the same rate type.
+- Per-room and global nightly pricing rules: normal, Thursday/Friday weekend, holidays, Nowruz, and peak periods. Special date ranges override weekend and normal rates; room-specific rules override global rules at the same rate type. The public booking page displays the calculated stay estimate when all nights have rates, and the Worker stores that quote on the reservation.
 - Post-stay guest feedback links and ratings for cleanliness, staff, room quality, and overall satisfaction.
 - JSON backup and multi-sheet XLSX export for reservations, guests, rooms, pricing rules, and reviews. Financial exports include reservation total, deposit, paid total, and balance; individual payment transactions are not separately stored in the current schema.
 
