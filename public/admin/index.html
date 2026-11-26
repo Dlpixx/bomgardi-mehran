@@ -119,7 +119,7 @@ form button{width:100%}
 .status-pill{display:inline-block;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:bold;margin:7px 0}
 .status-free{background:#e4f4e8;color:#236b39}.status-booked{background:#fff0d8;color:#895500}.status-occupied{background:#f9dfdf;color:#9b2929}.status-cancelled{background:#eee;color:#666}
 .room{border-radius:13px;padding:13px;border:1px solid #eee2d5}.room-free{background:#f0f8f1;border-color:#cce6d0}.room-booked{background:#fff8eb;border-color:#f0d9a8}.room-occupied{background:#fff0f0;border-color:#efcaca}
-.action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
+.action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.approve{background:#e4f4e8;color:#236b39}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
 
 .calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 14px;flex-wrap:wrap}
 .calendar-toolbar button{padding:10px 13px}
@@ -676,10 +676,7 @@ function reservationCard(r,actions=true){
   <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
   <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
   <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
-  ${actions?`<div class="action-row">
-   ${!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button>`:''}
-   ${!['cancelled','checked_out'].includes(r.status)?`<button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
-  </div>`:''}
+  ${(r.status==='pending'||(actions&&!['cancelled','checked_out'].includes(r.status)))?`<div class="action-row">\n   ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}\n   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}\n  </div>`:''}
  </div>`;
 }
 function renderReservationList(){
@@ -725,6 +722,23 @@ async function saveReservationEdit(){
  if(error){msg.textContent='خطا در ذخیره: '+error.message;return;}
  closeEditModal();await loadReservations();alert('تغییرات رزرو ذخیره شد.');
 }
+async function confirmReservation(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));
+ if(!r||r.status!=='pending')return;
+ const ok=confirm(`درخواست رزرو ${r.guests?.full_name||'مهمان'} برای اتاق ${r.rooms?.name||'انتخاب‌شده'} تأیید شود؟\nاتاق پس از تأیید برای همین بازه رزرو باقی می‌ماند.`);
+ if(!ok)return;
+ const {data,error}=await db.from('reservations')
+  .update({status:'confirmed'})
+  .eq('id',id)
+  .eq('status','pending')
+  .select('id')
+  .maybeSingle();
+ if(error){alert('خطا در تأیید رزرو: '+error.message);return;}
+ if(!data){alert('وضعیت این رزرو تغییر کرده یا قبلاً تأیید شده است. فهرست به‌روزرسانی می‌شود.');await loadReservations();return;}
+ await loadReservations();
+ alert('رزرو با موفقیت تأیید شد. اتاق برای این بازه همچنان مسدود است.');
+}
+
 async function addPayment(id){
  const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
  const amountText=prompt('مبلغ پرداخت جدید به تومان را وارد کن:');if(amountText===null)return;
