@@ -9,5 +9,9 @@
     "binding": "ASSETS",
     "run_worker_first": true
   },
-  "previews": {}
+  "previews": {
+    "vars": {
+      "SUPABASE_URL": "https://bvvnykswdkbebmghndzt.supabase.co"
+    }
+  }
 }
