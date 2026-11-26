@@ -230,6 +230,7 @@ async function handleApi(request, env, url) {
           adults, children, infants,
           total_amount:0, deposit_amount:0, paid_amount:0,
           status:"pending",
+          booking_source:"سایت بوم‌گردی مهران",
           notes:[ "درخواست ثبت‌شده از سایت عمومی", notes ].filter(Boolean).join(" | ")
         })
       });
