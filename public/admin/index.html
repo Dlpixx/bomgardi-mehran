@@ -348,6 +348,19 @@ form button{width:100%}
  </div>
 </div>
 
+<div id="welcomeModal" class="jalali-overlay hidden" onclick="if(event.target===this)closeWelcomeModal()">
+ <div class="jalali-modal edit-modal">
+  <div class="jalali-title">پیام خوشامدگویی مهمان 🌿</div>
+  <p class="muted">این متن برای همین رزرو آماده شده است. آن را کپی کنید و از طریق پیامک برای مهمان بفرستید.</p>
+  <textarea id="welcomeText" rows="13" readonly style="line-height:2;direction:rtl;white-space:pre-wrap"></textarea>
+  <div class="picker-actions">
+   <button class="secondary" onclick="closeWelcomeModal()">بستن</button>
+   <button onclick="copyWelcomeMessage()">کپی متن پیامک</button>
+  </div>
+  <div id="welcomeCopyStatus" class="muted" style="margin-top:12px;line-height:1.8"></div>
+ </div>
+</div>
+
 <div id="jalaliPicker" class="jalali-overlay hidden"
  onclick="if(event.target===this)closeJalaliPicker()">
 
@@ -763,7 +776,7 @@ function reservationCard(r,actions=true){
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
    ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
    ${actions&&r.status!=='cancelled'?`<button class="secondary" onclick="printInvoice('${r.id}')">فاکتور / رسید</button>`:''}
-   ${actions&&['confirmed','checked_in','checked_out'].includes(r.status)?`<button class="secondary" onclick="issueGuestAccessKey('${r.id}')">صدور کد ورود مهمان</button>`:''}
+   ${actions&&['confirmed','checked_in','checked_out'].includes(r.status)?`<button class="secondary" onclick="prepareWelcomeMessage('${r.id}')">آماده‌سازی پیامک خوشامدگویی</button>`:''}
    ${actions&&r.status!=='cancelled'&&r.review_token&&(r.status==='checked_out'||r.check_out<todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
   </div>`:''}
  </div>`;
@@ -1072,33 +1085,60 @@ async function confirmReservation(id){
  if(error){alert('خطا در تأیید رزرو: '+error.message);return;}
  if(!data){alert('وضعیت این رزرو تغییر کرده یا قبلاً تأیید شده است. فهرست به‌روزرسانی می‌شود.');await loadReservations();return;}
  await loadReservations();
- alert('رزرو با موفقیت تأیید شد. اتاق برای این بازه همچنان مسدود است.');
-}
-
-
-async function issueGuestAccessKey(id){
+ alert('رزرو با موفقیت تأیید شد. اتاق برای این بازه همچنان مسدود اasync function prepareWelcomeMessage(id){
  const r=cachedReservations.find(x=>String(x.id)===String(id));
  if(!r||!['confirmed','checked_in','checked_out'].includes(r.status)){
-  alert('صدور کد ورود فقط برای رزرو تأییدشده امکان‌پذیر است.');return;
+  alert('آماده‌سازی پیام خوشامدگویی فقط برای رزرو تأییدشده امکان‌پذیر است.');return;
  }
- if(!confirm('یک کد ورود جدید برای '+(r.guests?.full_name||'مهمان')+' صادر شود؟ کد قبلی این رزرو باطل خواهد شد.'))return;
+ const hasOldKey=!!r.guest_access_token_hash;
+ const question=hasOldKey
+  ? 'برای این مهمان یک کد ورود جدید صادر شود؟ کد قبلی بلافاصله باطل می‌شود و متن پیامک با کد جدید آماده خواهد شد.'
+  : 'برای این مهمان کد ورود اختصاصی صادر و متن پیامک آماده شود؟';
+ if(!confirm(question))return;
  try{
-  const bytes=new Uint8Array(24);crypto.getRandomValues(bytes);
+  const bytes=new Uint8Array(24);
+  crypto.getRandomValues(bytes);
   const key=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key));
   const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   const {error}=await db.from('reservations').update({guest_access_token_hash:hash}).eq('id',id);
   if(error)throw error;
-  const message='بوم‌گردی مهران - ورود مهمان\nشماره موبایل: '+(r.guests?.phone||'')+'\nکد پیگیری: '+r.id.slice(-8).toUpperCase()+'\nکد ورود اختصاصی: '+key+'\nورود به پنل: '+location.origin+'/guest/';
+  const guestName=String(r.guests?.full_name||'مهمان گرامی').trim();
+  const phone=String(r.guests?.phone||'').trim();
+  const trackingCode=String(r.id).slice(-8).toUpperCase();
+  const guestUrl=location.origin+'/guest/';
+  const message='سلام '+guestName+' عزیز 🌿\n'+
+   'خیلی خوش اومدید به بوم‌گردی مهران.\n'+
+   'امیدواریم اقامت دلنشین و خاطره‌انگیزی داشته باشید.\n\n'+
+   'برای ورود به پنل مهمان، اطلاعات زیر را در سایت وارد کنید:\n'+
+   'شماره موبایلی که هنگام رزرو ثبت کردید: '+phone+'\n'+
+   'کد پیگیری رزرو: '+trackingCode+'\n'+
+   'کد ورود اختصاصی (۴۸ کاراکتری): '+key+'\n\n'+
+   'لینک ورود به پنل مهمان:\n'+guestUrl;
+  document.getElementById('welcomeText').value=message;
+  document.getElementById('welcomeCopyStatus').textContent='کد ورود جدید صادر شد. متن آماده ارسال است؛ برای کپی روی دکمه زیر بزنید.';
+  document.getElementById('welcomeModal').classList.remove('hidden');
   await loadReservations();
-  try{
-   await navigator.clipboard.writeText(message);
-   alert('کد ورود جدید صادر و متن راهنمای مهمان کپی شد. آن را برای مهمان ارسال کنید.');
-  }catch{
-   prompt('کد ورود جدید صادر شد. متن زیر را برای مهمان ارسال کنید:',message);
-  }
  }catch(error){
-  alert('صدور کد ورود انجام نشد: '+(error.message||'خطای نامشخص'));
+  alert('آماده‌سازی پیام انجام نشد: '+(error.message||'خطای نامشخص'));
+ }
+}
+function closeWelcomeModal(){
+ document.getElementById('welcomeModal').classList.add('hidden');
+}
+async function copyWelcomeMessage(){
+ const field=document.getElementById('welcomeText');
+ const status=document.getElementById('welcomeCopyStatus');
+ try{
+  await navigator.clipboard.writeText(field.value);
+  status.textContent='متن پیامک کپی شد؛ حالا می‌توانید آن را در پیامک گوشی جای‌گذاری کنید. ❤️';
+ }catch(error){
+  field.focus();
+  field.select();
+  status.textContent='کپی خودکار در دسترس نیست؛ متن انتخاب شده است. آن را کپی کنید.';
+ }
+}
+ص'));
  }
 }
 
