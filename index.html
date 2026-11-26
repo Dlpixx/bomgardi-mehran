@@ -450,25 +450,20 @@ function getJalaliParts(date){
 }
 
 function jalaliToGregorian(jy,jm,jd){
+ // شروع سال شمسی در بازه‌ای از اسفند سال میلادی قبل تا فروردین سال بعد است.
+ // بنابراین باید کل بازه سال را جست‌وجو کنیم، نه فقط چند روز اطراف نوروز.
+ if(!Number.isInteger(jy) || !Number.isInteger(jm) || !Number.isInteger(jd)) return null;
+ if(jy < 1 || jm < 1 || jm > 12 || jd < 1 || jd > 31) return null;
 
- const start = new Date(jy+621,2,15,12);
-
- for(let i=-12;i<=12;i++){
-
+ const start = new Date(jy + 621, 0, 1, 12);
+ for(let i=0; i<460; i++){
   const date = new Date(start);
-  date.setDate(start.getDate()+i);
-
+  date.setDate(start.getDate() + i);
   const p = getJalaliParts(date);
-
-  if(
-   p.year===jy &&
-   p.month===jm &&
-   p.day===jd
-  ){
+  if(p.year === jy && p.month === jm && p.day === jd){
    return date;
   }
  }
-
  return null;
 }
 
