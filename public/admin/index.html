@@ -1089,7 +1089,7 @@ async function issueGuestAccessKey(id){
   const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
   const {error}=await db.from('reservations').update({guest_access_token_hash:hash}).eq('id',id);
   if(error)throw error;
-  const message='بوم‌گردی مهران - ورود مهمان\\nشماره موبایل: '+(r.guests?.phone||'')+'\\nکد پیگیری: '+r.id.slice(-8).toUpperCase()+'\\nکد ورود اختصاصی: '+key+'\\nورود به پنل: '+location.origin+'/guest/';
+  const message='بوم‌گردی مهران - ورود مهمان\nشماره موبایل: '+(r.guests?.phone||'')+'\nکد پیگیری: '+r.id.slice(-8).toUpperCase()+'\nکد ورود اختصاصی: '+key+'\nورود به پنل: '+location.origin+'/guest/';
   await loadReservations();
   try{
    await navigator.clipboard.writeText(message);
