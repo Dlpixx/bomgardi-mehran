@@ -25,6 +25,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 .room input{width:auto;margin-left:7px}.room strong{display:block;color:var(--brown)}
 .room p{margin:5px 0;color:var(--muted);font-size:12px}
 .room .availability{font-size:11px;color:#277143}
+.room .price{font-size:13px;color:#80502e;font-weight:bold;margin-top:9px}
 .actions{display:flex;gap:10px;flex-wrap:wrap}.actions button{flex:1}
 .notice{background:#f7f3ec;border-radius:12px;padding:13px;font-size:12px;color:#6b5948}
 #message{display:none;margin-top:14px;padding:13px;border-radius:12px;font-size:13px}
@@ -73,7 +74,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 <div class="field"><label for="fullName">نام و نام خانوادگی</label><input id="fullName" maxlength="120" autocomplete="name" required placeholder="نام کامل مسافر"></div>
 <div class="field"><label for="phone">شماره موبایل</label><input id="phone" inputmode="tel" autocomplete="tel" required placeholder="09123456789"></div>
 <div class="field"><label for="notes">توضیحات (اختیاری)</label><textarea id="notes" rows="3" maxlength="1000" placeholder="درخواست یا توضیح خاص..."></textarea></div>
-<div class="notice">با ثبت درخواست، اطلاعات شما برای بررسی در اختیار مدیریت بوم‌گردی مهران قرار می‌گیرد. ثبت این فرم به معنی تأیید قطعی یا پرداخت وجه نیست. مبلغ اقامت پس از بررسی توسط مجموعه اعلام می‌شود.</div>
+<div class="notice">با ثبت درخواست، اطلاعات شما برای بررسی در اختیار مدیریت بوم‌گردی مهران قرار می‌گیرد. در صورت تعریف تعرفه برای تمام شب‌های اقامت، مبلغ تقریبی کنار اتاق نمایش داده می‌شود؛ ثبت فرم به معنی تأیید قطعی یا پرداخت وجه نیست.</div>
 <div class="field" style="margin-top:12px"><label><input id="consent" type="checkbox" required style="width:auto"> با ثبت و ارسال اطلاعات برای پیگیری درخواست موافقم.</label></div>
 <div class="actions"><button id="submitBtn" type="submit">ثبت درخواست رزرو</button><a class="button secondary" href="/">بازگشت</a></div>
 <div id="message" role="status" aria-live="polite"></div>
@@ -131,7 +132,7 @@ async function loadRooms(){
   const people=Number($('adults').value||1)+Number($('children').value||0);
   const available=rooms.filter(room=>room.available && (!room.max_capacity&&!room.capacity || people<=Number(room.max_capacity||room.capacity)));
   if(!available.length){$('roomList').innerHTML='<div class="muted">برای این تاریخ و تعداد نفرات، اتاق آزادی پیدا نشد. تاریخ یا تعداد نفرات را تغییر دهید.</div>';return;}
-  $('roomList').innerHTML=available.map(room=>'<label class="room '+(selectedRoom===room.id?'selected':'')+'"><div><input type="radio" name="room" value="'+room.id+'" '+(selectedRoom===room.id?'checked':'')+'><strong>'+escapeHtml(room.name)+'</strong></div><p>'+escapeHtml(room.description||'')+'</p><p>ظرفیت: '+(room.capacity??'—')+' نفر'+(room.max_capacity?' · حداکثر '+room.max_capacity+' نفر':'')+'</p><span class="availability">● قابل رزرو در تاریخ انتخابی</span></label>').join('');
+  $('roomList').innerHTML=available.map(room=>'<label class="room '+(selectedRoom===room.id?'selected':'')+'"><div><input type="radio" name="room" value="'+room.id+'" '+(selectedRoom===room.id?'checked':'')+'><strong>'+escapeHtml(room.name)+'</strong></div><p>'+escapeHtml(room.description||'')+'</p><p>ظرفیت: '+(room.capacity??'—')+' نفر'+(room.max_capacity?' · حداکثر '+room.max_capacity+' نفر':'')+'</p><span class="availability">● قابل رزرو در تاریخ انتخابی</span>'+(room.price_per_stay!==null&&room.price_per_stay!==undefined?'<p class="price">مبلغ تقریبی '+Number(room.price_per_stay).toLocaleString('fa-IR')+' تومان برای '+Number(room.price_nights||0).toLocaleString('fa-IR')+' شب</p>':'<p class="muted">مبلغ پس از بررسی مدیریت اعلام می‌شود.</p>')+'</label>').join('');
   document.querySelectorAll('input[name="room"]').forEach(el=>el.addEventListener('change',()=>{selectedRoom=el.value;document.querySelectorAll('.room').forEach(x=>x.classList.remove('selected'));el.closest('.room').classList.add('selected');}));
  }catch(e){$('roomList').innerHTML='<div class="muted">'+escapeHtml(e.message)+'</div>';}
  finally{loadingRooms=false;}
