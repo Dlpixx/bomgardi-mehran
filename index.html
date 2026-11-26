@@ -34,6 +34,87 @@ form button{width:100%}
 .hidden{display:none!important}
 #message{font-size:13px;color:#9b3b25;margin-top:10px}
 @media(max-width:400px){.rooms{grid-template-columns:1fr}}
+.jalali-overlay{
+ position:fixed;
+ inset:0;
+ background:#0008;
+ z-index:99999;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ padding:15px;
+}
+.jalali-modal{
+ background:white;
+ width:100%;
+ max-width:430px;
+ border-radius:20px;
+ padding:20px;
+ box-shadow:0 10px 40px #0003;
+}
+.jalali-title{
+ font-size:18px;
+ font-weight:bold;
+ margin-bottom:20px;
+}
+.jalali-wheels{
+ display:flex;
+ direction:rtl;
+ gap:8px;
+}
+.wheel-wrap{
+ flex:1;
+ min-width:0;
+ text-align:center;
+}
+.wheel-wrap small{
+ display:block;
+ margin-bottom:10px;
+ color:#806d5d;
+}
+.wheel{
+ height:220px;
+ overflow-y:auto;
+ scroll-snap-type:y mandatory;
+ scrollbar-width:none;
+ border-top:1px solid #ddd1c3;
+ border-bottom:1px solid #ddd1c3;
+}
+.wheel::-webkit-scrollbar{
+ display:none;
+}
+.wheel-spacer{
+ height:88px;
+}
+.wheel-item{
+ display:block;
+ width:100%;
+ height:44px;
+ padding:0;
+ border-radius:0;
+ background:white;
+ color:#806d5d;
+ scroll-snap-align:center;
+ font-size:16px;
+}
+.wheel-item.active{
+ background:#f5eee5;
+ color:#80502e;
+ font-weight:bold;
+}
+.picker-actions{
+ display:flex;
+ gap:10px;
+ margin-top:20px;
+}
+.picker-actions button{
+ flex:1;
+}
+#pickerError{
+ color:#b43b2b;
+ font-size:12px;
+ margin-top:10px;
+}
 </style>
 </head>
 <body>
@@ -127,7 +208,43 @@ form button{width:100%}
 </div>
 </section>
 </main>
+<div id="jalaliPicker" class="jalali-overlay hidden"
+ onclick="if(event.target===this)closeJalaliPicker()">
 
+ <div class="jalali-modal">
+
+  <div class="jalali-title">انتخاب تاریخ شمسی</div>
+
+  <div class="jalali-wheels">
+
+   <div class="wheel-wrap">
+    <small>روز</small>
+    <div id="dayWheel" class="wheel"></div>
+   </div>
+
+   <div class="wheel-wrap">
+    <small>ماه</small>
+    <div id="monthWheel" class="wheel"></div>
+   </div>
+
+   <div class="wheel-wrap">
+    <small>سال</small>
+    <div id="yearWheel" class="wheel"></div>
+   </div>
+
+  </div>
+
+  <div id="pickerError"></div>
+
+  <div class="picker-actions">
+   <button class="secondary"
+    onclick="closeJalaliPicker()">انصراف</button>
+
+   <button onclick="confirmJalaliPicker()">تأیید تاریخ</button>
+  </div>
+
+ </div>
+</div>
 <script>
 const SUPABASE_URL = "https://bvvnykswdkbebmghndzt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_HsF_nBfxbh3TnxCPUrJqsA_jTzB15lf";
@@ -212,6 +329,197 @@ function formatJalaliDate(dateString) {
     month: '2-digit',
     day: '2-digit'
   }).format(date);
+}
+ // موتور تقویم شمسی بوم‌گردی مهران
+
+const jalaliMonths = [
+ 'فروردین','اردیبهشت','خرداد',
+ 'تیر','مرداد','شهریور',
+ 'مهر','آبان','آذر',
+ 'دی','بهمن','اسفند'
+];
+
+let currentPickerField = null;
+
+let selectedJalali = {
+ day:1,
+ month:1,
+ year:1405
+};
+
+function getJalaliParts(date){
+
+ const parts = new Intl.DateTimeFormat(
+  'en-US-u-ca-persian',
+  {
+   year:'numeric',
+   month:'numeric',
+   day:'numeric'
+  }
+ ).formatToParts(date);
+
+ const result = {};
+
+ parts.forEach(p=>{
+  if(p.type==='year') result.year=Number(p.value);
+  if(p.type==='month') result.month=Number(p.value);
+  if(p.type==='day') result.day=Number(p.value);
+ });
+
+ return result;
+}
+
+function jalaliToGregorian(jy,jm,jd){
+
+ const start = new Date(jy+621,2,15,12);
+
+ for(let i=-12;i<=12;i++){
+
+  const date = new Date(start);
+  date.setDate(start.getDate()+i);
+
+  const p = getJalaliParts(date);
+
+  if(
+   p.year===jy &&
+   p.month===jm &&
+   p.day===jd
+  ){
+   return date;
+  }
+ }
+
+ return null;
+}
+
+function renderWheel(id,items,selected,key){
+
+ const wheel=document.getElementById(id);
+
+ wheel.innerHTML=
+ '<div class="wheel-spacer"></div>'+
+
+ items.map(item=>`
+  <button type="button"
+   class="wheel-item ${item.value===selected?'active':''}"
+   onclick="this.parentElement.scrollTo({top:${items.indexOf(item)}*44,behavior:'smooth'})">
+   ${item.label}
+  </button>
+ `).join('')+
+
+ '<div class="wheel-spacer"></div>';
+
+ wheel.onscroll=()=>{
+
+  const index=Math.max(0,Math.min(
+   items.length-1,
+   Math.round(wheel.scrollTop/44)
+  ));
+
+  selectedJalali[key]=items[index].value;
+
+  wheel.querySelectorAll('.wheel-item')
+   .forEach((item,i)=>{
+    item.classList.toggle('active',i===index);
+   });
+ };
+
+ wheel.scrollTop=items.findIndex(
+  item=>item.value===selected
+ )*44;
+}
+
+function openJalaliPicker(field){
+
+ currentPickerField=field;
+
+ const hidden=document.getElementById(field);
+
+ let date=hidden.value
+  ? new Date(hidden.value+'T12:00:00')
+  : new Date();
+
+ let p=getJalaliParts(date);
+
+ if(p.year<1405 || p.year>1600){
+  p={day:1,month:1,year:1405};
+ }
+
+ selectedJalali={
+  day:p.day,
+  month:p.month,
+  year:p.year
+ };
+
+ renderWheel(
+  'dayWheel',
+  Array.from({length:31},(_,i)=>({
+   value:i+1,
+   label:String(i+1).padStart(2,'0')
+  })),
+  p.day,
+  'day'
+ );
+
+ renderWheel(
+  'monthWheel',
+  jalaliMonths.map((name,i)=>({
+   value:i+1,
+   label:name
+  })),
+  p.month,
+  'month'
+ );
+
+ renderWheel(
+  'yearWheel',
+  Array.from({length:196},(_,i)=>({
+   value:1405+i,
+   label:String(1405+i)
+  })),
+  p.year,
+  'year'
+ );
+
+ document.getElementById('pickerError').textContent='';
+
+ document.getElementById('jalaliPicker')
+  .classList.remove('hidden');
+}
+
+function closeJalaliPicker(){
+
+ document.getElementById('jalaliPicker')
+  .classList.add('hidden');
+}
+
+function confirmJalaliPicker(){
+
+ const {year,month,day}=selectedJalali;
+
+ const date=jalaliToGregorian(year,month,day);
+
+ if(!date){
+
+  document.getElementById('pickerError')
+   .textContent='این تاریخ در تقویم شمسی معتبر نیست.';
+
+  return;
+ }
+
+ const iso=[
+  date.getFullYear(),
+  String(date.getMonth()+1).padStart(2,'0'),
+  String(date.getDate()).padStart(2,'0')
+ ].join('-');
+
+ document.getElementById(currentPickerField).value=iso;
+
+ document.getElementById(
+  currentPickerField+'Display'
+ ).value=formatJalaliDate(iso);
+
+ closeJalaliPicker();
 }
 async function loadReservations(){
  const {data,error}=await db.from('reservations')
