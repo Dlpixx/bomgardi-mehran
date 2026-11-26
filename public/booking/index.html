@@ -33,7 +33,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 .date-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .date-row select{padding:11px 5px}
 #success{display:none;text-align:center}
-.code{font-size:26px;letter-spacing:3px;color:var(--copper);font-weight:bold;direction:ltr}
+.code{font-size:26px;letter-spacing:3px;color:var(--copper);font-weight:bold;direction:ltr}.access-key{font-size:14px;letter-spacing:1px;overflow-wrap:anywhere;word-break:break-all;background:#f7f3ec;border:1px dashed #c9a77f;border-radius:10px;padding:13px;margin:8px 0;direction:ltr;text-align:center}.copy-key{background:#eee5da;color:var(--brown);font-size:12px;padding:9px 13px}
 @media(max-width:540px){.grid,.rooms{grid-template-columns:1fr}.card{padding:16px}header{padding:19px 18px}}
 </style>
 </head>
@@ -84,9 +84,11 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 <section id="success" class="card">
 <h1>درخواست شما ثبت شد 🌿</h1>
 <p>درخواست رزرو با موفقیت دریافت شد و در انتظار بررسی مدیریت است.</p>
-<div class="muted">کد پیگیری</div><div id="trackingCode" class="code"></div>
-<p class="muted">لطفاً کد پیگیری را نگه دارید. تأیید نهایی پس از بررسی مجموعه انجام می‌شود.</p>
-<a class="button" href="/">بازگشت به سایت</a>
+<div class="muted">کد پیگیری رزرو</div><div id="trackingCode" class="code"></div>
+<div class="muted" style="margin-top:15px">کد ورود اختصاصی مهمان</div><div id="guestAccessKey" class="access-key"></div>
+<button class="copy-key" type="button" onclick="copyGuestAccessKey()">کپی کد ورود</button>
+<p class="muted">این کد را حتماً ذخیره کنید؛ فقط شما آن را دریافت می‌کنید. پس از تأیید رزرو توسط مدیریت، با شماره موبایل، کد پیگیری و کد ورود می‌توانید وارد پنل مهمان شوید. اگر کد را گم کنید، مدیریت می‌تواند کد جدید صادر کند.</p>
+<div class="actions" style="justify-content:center;margin-top:14px"><a class="button" href="/guest/">ورود مهمان</a><a class="button secondary" href="/">بازگشت به سایت</a></div>
 </section>
 <footer class="muted" style="text-align:center;padding:20px">بوم‌گردی مهران · یزد</footer>
 </main>
@@ -137,6 +139,7 @@ async function loadRooms(){
  }catch(e){$('roomList').innerHTML='<div class="muted">'+escapeHtml(e.message)+'</div>';}
  finally{loadingRooms=false;}
 }
+function copyGuestAccessKey(){const key=$('guestAccessKey').textContent;if(!key||key.includes('دریافت نشد'))return;if(navigator.clipboard?.writeText){navigator.clipboard.writeText(key).then(()=>alert('کد ورود مهمان کپی شد.')).catch(()=>prompt('کد ورود را کپی و ذخیره کنید:',key));}else{prompt('کد ورود را کپی و ذخیره کنید:',key);}}
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function normalizeDigits(v){return String(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));}
 function showMessage(text,ok=false){$('message').textContent=text;$('message').className=ok?'ok':'err';}
@@ -158,7 +161,7 @@ $('bookingForm').addEventListener('submit',async e=>{
   if(!$('consent').checked)throw new Error('برای ارسال درخواست، موافقت خود را ثبت کنید.');
   const r=await fetch('/api/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'ثبت درخواست انجام نشد.');
-  $('bookingForm').style.display='none';$('success').style.display='block';$('trackingCode').textContent=data.tracking_code||'ثبت شد';
+  $('bookingForm').style.display='none';$('success').style.display='block';$('trackingCode').textContent=data.tracking_code||'ثبت شد';$('guestAccessKey').textContent=data.guest_access_key||'کد ورود دریافت نشد؛ با مدیریت تماس بگیرید.';
  }catch(err){showMessage(err.message);}
  finally{$('submitBtn').disabled=false;$('submitBtn').textContent='ثبت درخواست رزرو';}
 });
