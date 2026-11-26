@@ -115,6 +115,11 @@ form button{width:100%}
  font-size:12px;
  margin-top:10px;
 }
+
+.status-pill{display:inline-block;padding:5px 9px;border-radius:20px;font-size:11px;font-weight:bold;margin:7px 0}
+.status-free{background:#e4f4e8;color:#236b39}.status-booked{background:#fff0d8;color:#895500}.status-occupied{background:#f9dfdf;color:#9b2929}.status-cancelled{background:#eee;color:#666}
+.room{border-radius:13px;padding:13px;border:1px solid #eee2d5}.room-free{background:#f0f8f1;border-color:#cce6d0}.room-booked{background:#fff8eb;border-color:#f0d9a8}.room-occupied{background:#fff0f0;border-color:#efcaca}
+.action-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.action-row button{font-size:12px;padding:9px 11px}.danger{background:#f8e7e5;color:#9b2929}.search-box{margin:8px 0 15px}.edit-modal{max-height:90vh;overflow:auto}.money-line{font-size:12px;color:#66513f;margin-top:5px}
 </style>
 </head>
 <body>
@@ -161,7 +166,8 @@ form button{width:100%}
 
 <div id="rooms" class="hidden">
 <div class="card">
-<h2>اتاق‌های مجموعه</h2>
+<h2>وضعیت اتاق‌های مجموعه</h2>
+<p class="muted">سبز: خالی | زرد: دارای رزرو امروز/آینده | قرمز: در حال اقامت</p>
 <div id="roomList" class="rooms"></div>
 </div>
 </div>
@@ -203,11 +209,34 @@ form button{width:100%}
 <div id="list" class="hidden">
 <div class="card">
 <h2>فهرست رزروها</h2>
+<input id="reservationSearch" class="search-box" type="search" placeholder="جست‌وجو نام، موبایل یا اتاق..." oninput="renderReservationList()">
 <div id="reservationList"></div>
 </div>
 </div>
 </section>
 </main>
+<div id="editModal" class="jalali-overlay hidden" onclick="if(event.target===this)closeEditModal()">
+ <div class="jalali-modal edit-modal">
+  <div class="jalali-title">ویرایش رزرو</div>
+  <input id="editReservationId" type="hidden">
+  <label>اتاق</label><select id="editRoom"></select>
+  <label>تاریخ ورود</label>
+  <input id="editCheckinDisplay" type="text" placeholder="تاریخ ورود" readonly onclick="openJalaliPicker('editCheckin')">
+  <input id="editCheckin" type="hidden">
+  <label>تاریخ خروج</label>
+  <input id="editCheckoutDisplay" type="text" placeholder="تاریخ خروج" readonly onclick="openJalaliPicker('editCheckout')">
+  <input id="editCheckout" type="hidden">
+  <label>بزرگسال</label><input id="editAdults" type="number" min="1">
+  <label>کودک</label><input id="editChildren" type="number" min="0">
+  <label>نوزاد</label><input id="editInfants" type="number" min="0">
+  <label>مبلغ کل (تومان)</label><input id="editAmount" type="text" inputmode="numeric">
+  <label>بیعانه (تومان)</label><input id="editDeposit" type="text" inputmode="numeric">
+  <label>توضیحات</label><textarea id="editNotes" rows="3"></textarea>
+  <div class="picker-actions"><button class="secondary" onclick="closeEditModal()">انصراف</button><button onclick="saveReservationEdit()">ذخیره تغییرات</button></div>
+  <div id="editMessage" class="muted"></div>
+ </div>
+</div>
+
 <div id="jalaliPicker" class="jalali-overlay hidden"
  onclick="if(event.target===this)closeJalaliPicker()">
 
@@ -272,6 +301,9 @@ document.getElementById('amount')
 document.getElementById('deposit')
   .addEventListener('input', e => formatMoney(e.target));
 
+document.getElementById('editAmount').addEventListener('input', e => formatMoney(e.target));
+document.getElementById('editDeposit').addEventListener('input', e => formatMoney(e.target));
+
 async function login(){
  const {error}=await db.auth.signInWithPassword({
  email:document.getElementById('email').value,
@@ -301,23 +333,29 @@ function showTab(tab){
 }
 
 async function loadRooms(){
- const {data,error}=await db.from('rooms')
- .select('*').eq('is_active',true)
- .order('display_order');
- if(error){alert(error.message);return;}
+ const {data,error}=await db.from('rooms').select('*').eq('is_active',true).order('display_order');
+ if(error){alert('خطا در دریافت اتاق‌ها: '+error.message);return;}
  rooms=data||[];
-
- document.getElementById('roomList').innerHTML=rooms.map(r=>`
- <div class="room">
- <b>${r.name}</b>
- <small>ظرفیت معمول: ${r.capacity} نفر</small><br>
- <small>حداکثر ظرفیت: ${r.max_capacity} نفر</small>
- </div>`).join('');
-
- document.getElementById('roomSelect').innerHTML=
- '<option value="">انتخاب اتاق</option>'+
- rooms.map(r=>`<option value="${r.id}">${r.name} - ظرفیت ${r.max_capacity} نفر</option>`).join('');
+ document.getElementById('roomSelect').innerHTML='<option value="">انتخاب اتاق</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)} - ظرفیت ${r.max_capacity} نفر</option>`).join('');
+ document.getElementById('editRoom').innerHTML=rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+ renderRoomStatus();
 }
+function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+let cachedReservations=[];
+function renderRoomStatus(){
+ const today=todayISO();
+ document.getElementById('roomList').innerHTML=rooms.map(room=>{
+  const active=cachedReservations.filter(r=>r.room_id===room.id&&!['cancelled','checked_out'].includes(r.status)&&r.check_out>today&&r.check_in<=today);
+  const future=cachedReservations.filter(r=>r.room_id===room.id&&!['cancelled','checked_out'].includes(r.status)&&r.check_in>today);
+  let cls='room-free',pill='status-free',label='خالی';
+  if(active.some(r=>r.status==='checked_in')){cls='room-occupied';pill='status-occupied';label='در حال اقامت';}
+  else if(active.length){cls='room-booked';pill='status-booked';label='رزرو شده';}
+  else if(future.length){cls='room-booked';pill='status-booked';label='رزرو آینده';}
+  return `<div class="room ${cls}"><b>${escapeHtml(room.name)}</b><span class="status-pill ${pill}">${label}</span><br><small>ظرفیت معمول: ${room.capacity} نفر</small><br><small>حداکثر ظرفیت: ${room.max_capacity} نفر</small></div>`;
+ }).join('');
+}
+
 function formatJalaliDate(dateString) {
   if (!dateString) return '';
 
@@ -522,67 +560,93 @@ function confirmJalaliPicker(){
  closeJalaliPicker();
 }
 async function loadReservations(){
- const recentEl = document.getElementById('recent');
- const listEl = document.getElementById('reservationList');
-
- recentEl.textContent = 'در حال دریافت اطلاعات...';
- listEl.textContent = 'در حال دریافت اطلاعات...';
-
- try {
-  const { data, error } = await db
-   .from('reservations')
-   .select('*, rooms(name), guests(full_name, phone)')
-   .order('created_at', { ascending: false });
-
-  if (error) {
-   console.error('Reservation loading error:', error);
-   const message = 'خطا در دریافت رزروها: ' + error.message;
-   recentEl.textContent = message;
-   listEl.textContent = message;
-   return;
-  }
-
-  const reservations = data || [];
-
-  const statusNames = {
-   pending: 'در انتظار تأیید',
-   confirmed: 'تأیید شده',
-   checked_in: 'مهمان مقیم',
-   checked_out: 'تسویه و خروج',
-   cancelled: 'لغو شده'
-  };
-
-  const html = reservations.map(r => `
-   <div class="reservation">
-    <b>${r.guests?.full_name || 'مهمان'}</b>
-    <div>${r.rooms?.name || 'اتاق'} |
-     ${formatJalaliDate(r.check_in)} تا
-     ${formatJalaliDate(r.check_out)}
-    </div>
-    <div class="muted">
-     وضعیت: ${statusNames[r.status] || r.status}
-    </div>
-    ${!['cancelled', 'checked_out'].includes(r.status) ? `
-     <button class="secondary"
-      onclick="cancelReservation('${r.id}')">
-      لغو رزرو
-     </button>` : ''}
-   </div>
-  `).join('');
-
-  document.getElementById('total').textContent =
-   reservations.filter(r => r.status !== 'cancelled').length;
-
-  recentEl.innerHTML = html || 'هنوز رزروی ثبت نشده است.';
-  listEl.innerHTML = html || 'رزروی وجود ندارد.';
-
- } catch (err) {
-  console.error('Unexpected reservation error:', err);
-  const message = 'خطای غیرمنتظره در دریافت رزروها: ' +
-   (err?.message || String(err));
-  recentEl.textContent = message;
-  listEl.textContent = message;
+ const recentEl=document.getElementById('recent');
+ const listEl=document.getElementById('reservationList');
+ recentEl.textContent='در حال دریافت اطلاعات...';
+ listEl.textContent='در حال دریافت اطلاعات...';
+ const {data,error}=await db.from('reservations')
+  .select('*, rooms(name), guests(full_name, phone)')
+  .order('created_at',{ascending:false});
+ if(error){
+  console.error(error);
+  recentEl.textContent='خطا در دریافت رزروها: '+error.message;
+  listEl.textContent='خطا در دریافت رزروها: '+error.message;
+  return;
  }
+ cachedReservations=data||[];
+ document.getElementById('total').textContent=cachedReservations.filter(r=>r.status!=='cancelled').length;
+ renderRoomStatus();
+ renderReservationList();
+ const recent=cachedReservations.slice(0,5);
+ recentEl.innerHTML=recent.length?recent.map(r=>reservationCard(r,false)).join(''):'هنوز رزروی ثبت نشده است.';
+}
+function reservationCard(r,actions=true){
+ const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
+ const remaining=Math.max(0,Number(r.total_amount||0)-Number(r.paid_amount||0));
+ return `<div class="reservation">
+  <b>${escapeHtml(r.guests?.full_name||'مهمان')}</b>
+  <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
+  <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
+  <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
+  ${actions?`<div class="action-row">
+   ${!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button>`:''}
+   ${!['cancelled','checked_out'].includes(r.status)?`<button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+  </div>`:''}
+ </div>`;
+}
+function renderReservationList(){
+ const box=document.getElementById('reservationList');if(!box)return;
+ const q=(document.getElementById('reservationSearch')?.value||'').trim().toLocaleLowerCase();
+ const filtered=cachedReservations.filter(r=>{
+  const hay=[r.guests?.full_name,r.guests?.phone,r.rooms?.name,r.status,r.check_in,r.check_out].join(' ').toLocaleLowerCase();
+  return hay.includes(q);
+ });
+ box.innerHTML=filtered.length?filtered.map(r=>reservationCard(r,true)).join(''):'رزروی با این مشخصات پیدا نشد.';
+}
+function openEditModal(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ document.getElementById('editReservationId').value=r.id;
+ document.getElementById('editRoom').value=r.room_id;
+ document.getElementById('editCheckin').value=r.check_in;
+ document.getElementById('editCheckout').value=r.check_out;
+ document.getElementById('editCheckinDisplay').value=formatJalaliDate(r.check_in);
+ document.getElementById('editCheckoutDisplay').value=formatJalaliDate(r.check_out);
+ document.getElementById('editAdults').value=r.adults??1;
+ document.getElementById('editChildren').value=r.children??0;
+ document.getElementById('editInfants').value=r.infants??0;
+ document.getElementById('editAmount').value=Number(r.total_amount||0).toLocaleString('en-US');
+ document.getElementById('editDeposit').value=Number(r.deposit_amount||0).toLocaleString('en-US');
+ document.getElementById('editNotes').value=r.notes||'';
+ document.getElementById('editMessage').textContent='';
+ document.getElementById('editModal').classList.remove('hidden');
+}
+function closeEditModal(){document.getElementById('editModal').classList.add('hidden');}
+async function saveReservationEdit(){
+ const id=document.getElementById('editReservationId').value;
+ const room=rooms.find(x=>String(x.id)===String(document.getElementById('editRoom').value));
+ const check_in=document.getElementById('editCheckin').value,check_out=document.getElementById('editCheckout').value;
+ const adults=Number(document.getElementById('editAdults').value),children=Number(document.getElementById('editChildren').value),infants=Number(document.getElementById('editInfants').value);
+ const total_amount=Number(document.getElementById('editAmount').value.replace(/,/g,''))||0;
+ const deposit_amount=Number(document.getElementById('editDeposit').value.replace(/,/g,''))||0;
+ const r=cachedReservations.find(x=>String(x.id)===String(id));
+ const msg=document.getElementById('editMessage');
+ if(!room||!check_in||!check_out||check_out<=check_in){msg.textContent='اتاق و تاریخ‌های معتبر را انتخاب کن.';return;}
+ if(adults<1||adults+children>Number(room.max_capacity)){msg.textContent='تعداد مسافران از ظرفیت اتاق بیشتر است.';return;}
+ if(total_amount<Number(r.paid_amount||0)||deposit_amount<0||deposit_amount>total_amount||deposit_amount>Number(r.paid_amount||0)){msg.textContent='مبلغ کل نباید از مبلغ پرداخت‌شده کمتر باشد و بیعانه نیز باید از مبلغ کل و پرداختی بیشتر نباشد.';return;}
+ const {error}=await db.from('reservations').update({room_id:room.id,check_in,check_out,adults,children,infants,total_amount,deposit_amount,notes:document.getElementById('editNotes').value}).eq('id',id);
+ if(error){msg.textContent='خطا در ذخیره: '+error.message;return;}
+ closeEditModal();await loadReservations();alert('تغییرات رزرو ذخیره شد.');
+}
+async function addPayment(id){
+ const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ const amountText=prompt('مبلغ پرداخت جدید به تومان را وارد کن:');if(amountText===null)return;
+ const amount=Number(amountText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,،\s]/g,''));
+ if(!Number.isFinite(amount)||amount<=0){alert('مبلغ پرداخت معتبر نیست.');return;}
+ const newPaid=Number(r.paid_amount||0)+amount;
+ if(newPaid>Number(r.total_amount||0)){alert('مبلغ پرداختی جدید از مانده حساب بیشتر است.');return;}
+ const {error}=await db.from('reservations').update({paid_amount:newPaid}).eq('id',id);
+ if(error){alert('خطا در ثبت پرداخت: '+error.message);return;}
+ await loadReservations();alert('پرداخت ثبت شد. مانده جدید: '+(Number(r.total_amount)-newPaid).toLocaleString('en-US')+' تومان');
 }
 
 document.getElementById('bookingForm').addEventListener('submit',async e=>{
