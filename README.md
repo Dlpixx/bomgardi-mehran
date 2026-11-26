@@ -23,7 +23,7 @@ Before using pricing rules or guest feedback, run `database/upgrade-guesthouse-f
 
 ## Guest portal
 
-The public home page includes a separate guest login at `/guest/`. A guest signs in with the reservation phone number, the 8-character booking tracking code, and a one-time 48-character random access key. Only reservations with status `confirmed`, `checked_in`, or `checked_out` can open the guest portal; pending and cancelled reservations are denied.
+The public home page includes a separate guest login at `/guest/`. A guest signs in with the reservation phone number, the 8-character booking tracking code, and a private 48-character random access key. Only reservations with status `confirmed`, `checked_in`, or `checked_out` can open the guest portal; pending and cancelled reservations are denied.
 
 New online bookings receive the access key once on the booking success screen. The database stores only its SHA-256 hash. If a guest loses the key, an authenticated manager can issue a replacement from the reservation card; issuing a new key invalidates the previous one.
 
