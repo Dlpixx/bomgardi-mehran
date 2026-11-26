@@ -828,13 +828,13 @@ async function loadGuestReviews(){
   return '<div class="price-rule"><b>'+escapeHtml(reservation.guests?.full_name||'مهمان')+'</b><div class="muted">'+escapeHtml(reservation.rooms?.name||'اتاق')+' · '+formatJalaliDate(reservation.check_in)+' تا '+formatJalaliDate(reservation.check_out)+'</div><div class="muted">نظافت: <span class="rating-stars">'+stars(review.cleanliness)+'</span></div><div class="muted">برخورد کارکنان: <span class="rating-stars">'+stars(review.staff)+'</span></div><div class="muted">کیفیت اتاق: <span class="rating-stars">'+stars(review.room_quality)+'</span></div><div><b>رضایت کلی: <span class="rating-stars">'+stars(review.overall)+'</span></b></div>'+(review.comment?'<p>'+escapeHtml(review.comment)+'</p>':'')+'<small class="muted">ثبت: '+escapeHtml(formatJalaliDate(String(review.created_at||'').slice(0,10)))+'</small></div>';
  }).join('');
 }
-let pricingRules=[];
+let pricingRules=[],pricingLoadError=null;
 const pricingTypeNames={normal:'عادی',weekend:'آخر هفته',holiday:'تعطیلات',nowruz:'نوروز',peak:'فصل شلوغ'};
 async function loadPricingRules(){
  const box=document.getElementById('pricingRulesList');
  const {data,error}=await db.from('room_pricing_rules').select('*, rooms(name)').order('created_at',{ascending:false});
- if(error){box.textContent='برای فعال‌سازی قیمت‌گذاری، ابتدا دستور SQL ارتقا را در Supabase اجرا کنید. جزئیات: '+error.message;return;}
- pricingRules=data||[];
+ if(error){pricingLoadError=error.message;box.textContent='برای فعال‌سازی قیمت‌گذاری، ابتدا دستور SQL ارتقا را در Supabase اجرا کنید. جزئیات: '+error.message;return;}
+ pricingLoadError=null;pricingRules=data||[];
  renderPricingRules();updateBookingPricePreview();
 }
 function handlePriceRuleTypeChange(){
@@ -864,6 +864,7 @@ async function savePricingRule(){
 }
 function renderPricingRules(){
  const box=document.getElementById('pricingRulesList');if(!box)return;
+ if(pricingLoadError){box.textContent='ابتدا دستور SQL ارتقا را در Supabase اجرا کنید و سپس صفحه را تازه‌سازی کنید.';return;}
  if(!pricingRules.length){box.innerHTML='<p class="muted">هنوز تعرفه‌ای تعریف نشده است.</p>';return;}
  box.innerHTML=pricingRules.map(rule=>{
   const room=rule.rooms?.name||'همه اتاق‌ها';
