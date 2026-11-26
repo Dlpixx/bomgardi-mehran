@@ -99,8 +99,9 @@ function jalaliParts(date){
  return {year:get('year'),month:get('month'),day:get('day')};
 }
 function jalaliToISO(y,m,d){
+ if(!Number.isInteger(y)||!Number.isInteger(m)||!Number.isInteger(d)||m<1||m>12||d<1||d>31)return null;
  const start=new Date(Date.UTC(y+621,2,15,12));
- for(let i=0;i<20;i++){
+ for(let i=0;i<400;i++){
   const date=new Date(start);date.setUTCDate(start.getUTCDate()+i);
   const p=jalaliParts(date);
   if(p.year===y&&p.month===m&&p.day===d)return date.toISOString().slice(0,10);
@@ -138,11 +139,12 @@ async function loadRooms(){
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function normalizeDigits(v){return String(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));}
 function showMessage(text,ok=false){$('message').textContent=text;$('message').className=ok?'ok':'err';}
-const today=jalaliParts(new Date());
+const tehranNowParts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+const tehranTodayISO=tehranNowParts.filter(p=>['year','month','day'].includes(p.type)).map(p=>p.value).join('-');
+const today=jalaliParts(new Date(tehranTodayISO+'T12:00:00Z'));
 fillDate('in',today);
-let tomorrowISO= new Date(Date.now()+86400000).toISOString().slice(0,10);
-let tomorrow=isoToJalali(tomorrowISO);
-if(getDate('in')<=new Date().toISOString().slice(0,10)){tomorrow=isoToJalali(new Date(Date.now()+86400000).toISOString().slice(0,10));}
+const tomorrowDate=new Date(tehranTodayISO+'T12:00:00Z');tomorrowDate.setUTCDate(tomorrowDate.getUTCDate()+1);
+const tomorrow=isoToJalali(tomorrowDate.toISOString().slice(0,10));
 fillDate('out',tomorrow);
 ['inDay','inMonth','inYear','outDay','outMonth','outYear','adults','children'].forEach(id=>$(id).addEventListener('change',datesChanged));
 $('bookingForm').addEventListener('submit',async e=>{
