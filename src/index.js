@@ -96,6 +96,48 @@ async function sendMelipayamakSms(env, to, text) {
     return { ok:false, reason:"NETWORK_ERROR" };
   }
 }
+function getPriceForNight(rules, roomId, iso) {
+  const day = new Date(iso + "T12:00:00Z").getUTCDay();
+  const priority = {nowruz:50, holiday:40, peak:30, weekend:20, normal:10};
+  const matched = (rules || []).filter(rule => {
+    if (rule.room_id && String(rule.room_id) !== String(roomId)) return false;
+    if (rule.start_date && iso < rule.start_date) return false;
+    if (rule.end_date && iso > rule.end_date) return false;
+    if (rule.rule_type === "weekend" && day !== 4 && day !== 5) return false;
+    if (["holiday","nowruz","peak"].includes(rule.rule_type) && (!rule.start_date || !rule.end_date)) return false;
+    return true;
+  }).sort((a,b) =>
+    (priority[b.rule_type] || 0) - (priority[a.rule_type] || 0) ||
+    Number(!!b.room_id) - Number(!!a.room_id) ||
+    String(b.created_at || "").localeCompare(String(a.created_at || ""))
+  );
+  return matched.length ? Number(matched[0].price_per_night) : null;
+}
+function calculateStayPrice(rules, roomId, checkIn, checkOut) {
+  if (!validISODate(checkIn) || !validISODate(checkOut) || checkOut <= checkIn) return null;
+  let total = 0, nights = 0;
+  const date = new Date(checkIn + "T12:00:00Z");
+  const end = new Date(checkOut + "T12:00:00Z");
+  while (date < end && nights < 90) {
+    const price = getPriceForNight(rules, roomId, date.toISOString().slice(0,10));
+    if (price === null || !Number.isFinite(price)) return null;
+    total += price;
+    nights++;
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+  return nights > 0 && nights < 90 ? {total, nights} : null;
+}
+async function getPricingRules(env) {
+  try {
+    return await supabase(env,
+      "room_pricing_rules?select=room_id,rule_type,price_per_night,start_date,end_date,days_of_week,created_at"
+    ) || [];
+  } catch (error) {
+    console.warn("PRICING_RULES_UNAVAILABLE", {code:error.code || null, status:error.status || null});
+    return [];
+  }
+}
+
 async function handleApi(request, env, url) {
   if (request.method === "OPTIONS") {
     return new Response(null, {status:204, headers:{
@@ -146,6 +188,7 @@ async function handleApi(request, env, url) {
         "rooms?select=id,name,capacity,max_capacity,description,image_path,is_active,display_order&is_active=eq.true&order=display_order.asc"
       );
       let busyIds = [];
+      let pricingRules = [];
       if (checkIn && checkOut) {
         const overlaps = await supabase(env,
           "reservations?select=room_id&check_in=lt." + encodeURIComponent(checkOut) +
@@ -153,13 +196,19 @@ async function handleApi(request, env, url) {
           "&status=neq.cancelled"
         );
         busyIds = [...new Set((overlaps || []).map(r => r.room_id))];
+        pricingRules = await getPricingRules(env);
       }
-      return json({ok:true,rooms:(rooms || []).map(room => ({
-        id:room.id, name:room.name, capacity:room.capacity,
-        max_capacity:room.max_capacity, description:room.description,
-        image_path:room.image_path,
-        available:checkIn && checkOut ? !busyIds.includes(room.id) : null
-      }))});
+      return json({ok:true,rooms:(rooms || []).map(room => {
+        const quote = checkIn && checkOut ? calculateStayPrice(pricingRules, room.id, checkIn, checkOut) : null;
+        return {
+          id:room.id, name:room.name, capacity:room.capacity,
+          max_capacity:room.max_capacity, description:room.description,
+          image_path:room.image_path,
+          available:checkIn && checkOut ? !busyIds.includes(room.id) : null,
+          price_per_stay:quote ? quote.total : null,
+          price_nights:quote ? quote.nights : null
+        };
+      })});
     } catch (error) {
       console.error("ROOMS_QUERY_FAILED", {
         code: error.code || null, status: error.status || null,
@@ -292,6 +341,8 @@ async function handleApi(request, env, url) {
       }
       if (!guest?.id) throw new Error("GUEST_CREATE_FAILED");
 
+      const pricingRules = await getPricingRules(env);
+      const quote = calculateStayPrice(pricingRules, room.id, checkIn, checkOut);
       const reservation = await supabase(env,"reservations",{
         method:"POST",
         headers:{"Prefer":"return=representation"},
@@ -299,10 +350,10 @@ async function handleApi(request, env, url) {
           guest_id:guest.id, room_id:room.id,
           check_in:checkIn, check_out:checkOut,
           adults, children, infants,
-          total_amount:0, deposit_amount:0, paid_amount:0,
+          total_amount:quote ? quote.total : 0, deposit_amount:0, paid_amount:0,
           status:"pending",
           booking_source:"سایت بوم‌گردی مهران",
-          notes:[ "درخواست ثبت‌شده از سایت عمومی", notes ].filter(Boolean).join(" | ")
+          notes:[ "درخواست ثبت‌شده از سایت عمومی", notes, quote ? "مبلغ براساس تعرفه‌های ثبت‌شده محاسبه شد." : "مبلغ پس از بررسی مدیریت اعلام می‌شود." ].filter(Boolean).join(" | ")
         })
       });
       const saved = reservation?.[0];
