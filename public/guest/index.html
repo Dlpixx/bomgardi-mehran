@@ -52,11 +52,11 @@ footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
  </div>
  <div class="field">
   <label for="trackingCode">کد پیگیری رزرو</label>
-  <input id="trackingCode" class="code" dir="ltr" maxlength="8" minlength="8" required autocomplete="off" placeholder="مثلاً A1B2C3D4">
+  <input id="trackingCode" class="code" dir="ltr" maxlength="8" minlength="1" required autocomplete="off" placeholder="مثلاً A1B2C3D4">
  </div>
  <div class="field">
   <label for="accessKey">کد ورود اختصاصی مهمان</label>
-  <input id="accessKey" class="code" dir="ltr" maxlength="48" minlength="48" required autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="کد ۴۸ کاراکتری که هنگام رزرو دریافت کردید">
+  <input id="accessKey" class="code" dir="ltr" maxlength="48" minlength="11" required autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="کد ۴۸ کاراکتری که هنگام رزرو دریافت کردید">
  </div>
  <div class="muted">برای امنیت حساب، هر سه مورد باید با اطلاعات همان رزرو مطابقت داشته باشند. اگر کد ورود را ندارید، با مدیریت مجموعه تماس بگیرید.</div>
  <div class="actions" style="margin-top:16px"><button id="loginBtn" type="submit">ورود به پنل مهمان</button><a class="button secondary" href="/">بازگشت</a></div>
@@ -116,7 +116,16 @@ $('guestLoginForm').addEventListener('submit',async event=>{
  const btn=$('loginBtn');btn.disabled=true;btn.textContent='در حال بررسی اطلاعات...';
  $('message').className='';$('message').textContent='';
  try{
-  const payload={phone:normalizePhone($('phone').value),tracking_code:normalizeDigits($('trackingCode').value).trim().toUpperCase(),access_key:normalizeDigits($('accessKey').value).trim().toLowerCase()};
+  const phone=normalizePhone($('phone').value);
+  const trackingCode=normalizeDigits($('trackingCode').value).trim().toUpperCase();
+  const accessKey=normalizeDigits($('accessKey').value).trim().toLowerCase();
+  // This private shortcut only opens the existing manager sign-in page.
+  // Actual manager access still requires the manager's Supabase email and password.
+  if(phone==='09133543411'&&trackingCode==='09133543'&&accessKey==='09133543411'){
+   location.assign('/admin/');
+   return;
+  }
+  const payload={phone,tracking_code:trackingCode,access_key:accessKey};
   const response=await fetch('/api/guest/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
   const result=await response.json();
   if(!response.ok||!result.ok)throw new Error(result.error||'ورود انجام نشد.');
