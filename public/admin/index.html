@@ -715,14 +715,16 @@ function renderSourceReport(){
  const period=document.getElementById('reportPeriod')?.value||'all';
  const now=new Date();
  let start=null;
- if(period==='month') start=new Date(now.getFullYear(),now.getMonth(),1);
+ const currentJalali=jalaliParts(now);
  if(period==='30days'){start=new Date(now);start.setHours(0,0,0,0);start.setDate(start.getDate()-29);}
- if(period==='year') start=new Date(now.getFullYear(),0,1);
  const rows=cachedReservations.filter(r=>{
-  if(!start)return true;
+  if(period==='all')return true;
   if(!r.created_at)return false;
   const created=new Date(r.created_at);
-  return Number.isFinite(created.getTime())&&created>=start&&created<=now;
+  if(!Number.isFinite(created.getTime())||created>now)return false;
+  if(period==='month'){const p=jalaliParts(created);return p.year===currentJalali.year&&p.month===currentJalali.month;}
+  if(period==='year')return jalaliParts(created).year===currentJalali.year;
+  return !start||created>=start;
  });
  const active=rows.filter(r=>r.status!=='cancelled');
  const cancelled=rows.length-active.length;
@@ -765,8 +767,8 @@ function renderSourceReport(){
  const topText=top?'بیشترین رزرو فعال: '+escapeHtml(top.source)+' ('+fmt(top.active)+' رزرو)':'در این بازه رزرو فعالی وجود ندارد.';
  document.getElementById('sourceTable').innerHTML=
   '<div class="muted" style="margin:8px 0 12px">'+topText+' | لغوشده در کل: '+fmt(cancelled)+'</div>'+
-  '<table class="report-table"><thead><tr><th>منبع رزرو</th><th>درخواست</th><th>فعال</th><th>لغو</th><th>مبلغ رزرو</th><th>دریافتی</th></tr></thead><tbody>'+
-  sorted.map(g=>'<tr><td><b>'+escapeHtml(g.source)+'</b><br><small class="muted">در انتظار: '+fmt(g.pending)+'</small></td><td>'+fmt(g.total)+'</td><td>'+fmt(g.active)+'</td><td>'+fmt(g.cancelled)+'</td><td>'+fmt(g.booked)+'</td><td>'+fmt(g.received)+'</td></tr>').join('')+
+  '<table class="report-table"><thead><tr><th>منبع رزرو</th><th>درخواست</th><th>فعال</th><th>در انتظار</th><th>تأییدشده</th><th>لغو</th><th>مبلغ رزرو</th><th>دریافتی</th></tr></thead><tbody>'+
+  sorted.map(g=>'<tr><td><b>'+escapeHtml(g.source)+'</b></td><td>'+fmt(g.total)+'</td><td>'+fmt(g.active)+'</td><td>'+fmt(g.pending)+'</td><td>'+fmt(g.confirmed)+'</td><td>'+fmt(g.cancelled)+'</td><td>'+fmt(g.booked)+'</td><td>'+fmt(g.received)+'</td></tr>').join('')+
   '</tbody></table>';
 }
 
