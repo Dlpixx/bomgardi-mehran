@@ -763,7 +763,7 @@ function reservationCard(r,actions=true){
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
    ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
    ${actions&&r.status!=='cancelled'?`<button class="secondary" onclick="printInvoice('${r.id}')">فاکتور / رسید</button>`:''}
-   ${actions&&r.status!=='cancelled'&&r.review_token&&(r.status==='checked_out'||r.check_out<=todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
+   ${actions&&r.status!=='cancelled'&&r.review_token&&(r.status==='checked_out'||r.check_out<todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
   </div>`:''}
  </div>`;
 }
