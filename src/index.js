@@ -8,7 +8,7 @@ function json(data, status=200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
 }
 function validISODate(value) {
-  if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const d = new Date(value + "T12:00:00Z");
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0,10) === value;
 }
@@ -53,7 +53,7 @@ async function supabase(env, path, options={}) {
 function normalizePhone(value) {
   let phone = String(value || "").replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d))
     .replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
-    .replace(/[\\s-]/g, "");
+    .replace(/[\s-]/g, "");
   if (phone.startsWith("+98")) phone = "0" + phone.slice(3);
   if (phone.startsWith("0098")) phone = "0" + phone.slice(4);
   return phone;
@@ -121,7 +121,7 @@ async function handleApi(request, env, url) {
     const infants = Number(body.infants || 0);
     const notes = String(body.notes || "").trim().slice(0,1000);
     if (!fullName || fullName.length > 120) return json({ok:false,error:"نام و نام خانوادگی را کامل وارد کنید."},400);
-    if (!/^09\\d{9}$/.test(phone)) return json({ok:false,error:"شماره موبایل باید به شکل ۰۹xxxxxxxxx باشد."},400);
+    if (!/^09\d{9}$/.test(phone)) return json({ok:false,error:"شماره موبایل باید به شکل ۰۹xxxxxxxxx باشد."},400);
     if (!roomId || !validISODate(checkIn) || !validISODate(checkOut) || checkOut <= checkIn) {
       return json({ok:false,error:"اتاق یا تاریخ‌های انتخاب‌شده معتبر نیستند."},400);
     }
