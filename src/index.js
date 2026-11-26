@@ -179,7 +179,7 @@ async function handleApi(request, env, url) {
       );
       const reservation = matches?.[0];
       if (!reservation) return json({ok:false,error:"این لینک پیدا نشد یا معتبر نیست."},404);
-      const eligible = reservation.status === "checked_out" || reservation.check_out <= tehranToday();
+      const eligible = reservation.status !== "cancelled" && (reservation.status === "checked_out" || reservation.check_out <= tehranToday());
       if (!eligible) return json({ok:false,error:"فرم رضایت پس از پایان اقامت فعال می‌شود."},403);
       const existing = await supabase(env,
         "guest_reviews?select=id,cleanliness,staff,room_quality,overall,comment,created_at&reservation_id=eq." +
@@ -221,7 +221,7 @@ async function handleApi(request, env, url) {
       );
       const reservation = matches?.[0];
       if (!reservation) return json({ok:false,error:"این لینک پیدا نشد یا معتبر نیست."},404);
-      const eligible = reservation.status === "checked_out" || reservation.check_out <= tehranToday();
+      const eligible = reservation.status !== "cancelled" && (reservation.status === "checked_out" || reservation.check_out <= tehranToday());
       if (!eligible) return json({ok:false,error:"فرم رضایت پس از پایان اقامت فعال می‌شود."},403);
       const existing = await supabase(env,
         "guest_reviews?select=id&reservation_id=eq." + encodeURIComponent(reservation.id) + "&limit=1"
