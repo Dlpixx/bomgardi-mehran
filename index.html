@@ -1,1 +1,290 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#56351f">
+<title>بوم‌گردی مهران</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f7f3ec;color:#35271e;font-family:Tahoma,Arial,sans-serif}
+header{background:#56351f;color:white;padding:22px 18px;border-radius:0 0 24px 24px}
+header h1{margin:0 0 8px;font-size:23px}
+header p{margin:0;color:#ead8c3;font-size:12px}
+main{padding:18px;max-width:850px;margin:auto}
+.card{background:white;border-radius:17px;padding:17px;margin-bottom:15px;box-shadow:0 3px 15px #43250b0b}
+h2{font-size:17px;margin:0 0 15px}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{background:#f5eee5;padding:15px;border-radius:13px}
+.stat strong{display:block;font-size:25px;color:#86542e;margin-top:8px}
+.rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.room{border:1px solid #eee2d5;border-radius:13px;padding:13px}
+.room b{display:block;margin-bottom:9px}
+.room small{color:#806d5d}
+button{border:0;border-radius:10px;background:#80502e;color:white;padding:13px 17px;font-size:14px;cursor:pointer}
+button.secondary{background:#eee5da;color:#54351f}
+input,select,textarea{width:100%;padding:13px;border:1px solid #ddd1c3;border-radius:10px;margin:7px 0 13px;font-family:inherit;font-size:14px;background:white}
+label{font-size:12px;color:#685747}
+form button{width:100%}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}
+.nav button{flex:1;min-width:100px}
+.reservation{border-bottom:1px solid #eee;padding:13px 0;font-size:13px}
+.muted{color:#887969;font-size:12px}
+.hidden{display:none!important}
+#message{font-size:13px;color:#9b3b25;margin-top:10px}
+@media(max-width:400px){.rooms{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
 
+<header>
+<h1>بوم‌گردی مهران</h1>
+<p>سامانه مدیریت اقامت و رزرو اتاق‌ها</p>
+</header>
+
+<main>
+<section id="login" class="card">
+<h2>ورود مدیر مجموعه</h2>
+<label>ایمیل مدیر</label>
+<input id="email" type="email" placeholder="ایمیل حساب مدیر">
+<label>رمز عبور</label>
+<input id="password" type="password" placeholder="رمز عبور">
+<button onclick="login()">ورود به پنل مدیریت</button>
+<div id="message"></div>
+</section>
+
+<section id="dashboard" class="hidden">
+<div class="nav">
+<button onclick="showTab('home')">داشبورد</button>
+<button onclick="showTab('rooms')">اتاق‌ها</button>
+<button onclick="showTab('booking')">رزرو جدید</button>
+<button onclick="showTab('list')">رزروها</button>
+<button class="secondary" onclick="logout()">خروج</button>
+</div>
+
+<div id="home">
+<div class="card">
+<h2>خوش آمدید 👋</h2>
+<p class="muted">مدیریت بوم‌گردی مهران</p>
+<div class="stats">
+<div class="stat">تعداد اتاق‌ها<strong>۹</strong></div>
+<div class="stat">رزروهای ثبت‌شده<strong id="total">۰</strong></div>
+</div>
+</div>
+<div class="card">
+<h2>آخرین رزروها</h2>
+<div id="recent" class="muted">در حال دریافت اطلاعات...</div>
+</div>
+</div>
+
+<div id="rooms" class="hidden">
+<div class="card">
+<h2>اتاق‌های مجموعه</h2>
+<div id="roomList" class="rooms"></div>
+</div>
+</div>
+
+<div id="booking" class="hidden">
+<div class="card">
+<h2>ثبت رزرو جدید</h2>
+<form id="bookingForm">
+<label>نام و نام خانوادگی مهمان</label>
+<input id="guestName" required placeholder="نام مهمان">
+<label>شماره موبایل</label>
+<input id="phone" required inputmode="tel" placeholder="09xxxxxxxxx">
+<label>انتخاب اتاق</label>
+<select id="roomSelect" required></select>
+<label>تاریخ ورود</label>
+<input id="checkin" type="date" required>
+<label>تاریخ خروج</label>
+<input id="checkout" type="date" required>
+<label>تعداد بزرگسال</label>
+<input id="adults" type="number" min="1" value="1" required>
+<label>تعداد کودک</label>
+<input id="children" type="number" min="0" value="0">
+<label>تعداد نوزاد</label>
+<input id="infants" type="number" min="0" value="0">
+<label>مبلغ کل (تومان)</label>
+<input id="amount" type="number" min="0" value="0">
+<label>مبلغ بیعانه (تومان)</label>
+<input id="deposit" type="number" min="0" value="0">
+<label>توضیحات</label>
+<textarea id="notes" rows="3" placeholder="توضیحات رزرو..."></textarea>
+<button type="submit">ثبت رزرو</button>
+<div id="bookingMessage"></div>
+</form>
+</div>
+</div>
+
+<div id="list" class="hidden">
+<div class="card">
+<h2>فهرست رزروها</h2>
+<div id="reservationList"></div>
+</div>
+</div>
+</section>
+</main>
+
+<script>
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+
+const db = window.supabase.createClient(
+SUPABASE_URL, SUPABASE_ANON_KEY
+);
+
+let rooms = [];
+
+async function login(){
+ const {error}=await db.auth.signInWithPassword({
+ email:document.getElementById('email').value,
+ password:document.getElementById('password').value
+ });
+ document.getElementById('message').textContent=error
+ ? error.message : '';
+ if(!error) await startApp();
+}
+
+async function logout(){
+ await db.auth.signOut();
+ location.reload();
+}
+
+async function startApp(){
+ document.getElementById('login').classList.add('hidden');
+ document.getElementById('dashboard').classList.remove('hidden');
+ await loadRooms();
+ await loadReservations();
+}
+
+function showTab(tab){
+ ['home','rooms','booking','list'].forEach(id=>{
+ document.getElementById(id).classList.toggle('hidden',id!==tab);
+ });
+}
+
+async function loadRooms(){
+ const {data,error}=await db.from('rooms')
+ .select('*').eq('is_active',true)
+ .order('display_order');
+ if(error){alert(error.message);return;}
+ rooms=data||[];
+
+ document.getElementById('roomList').innerHTML=rooms.map(r=>`
+ <div class="room">
+ <b>${r.name}</b>
+ <small>ظرفیت معمول: ${r.capacity} نفر</small><br>
+ <small>حداکثر ظرفیت: ${r.max_capacity} نفر</small>
+ </div>`).join('');
+
+ document.getElementById('roomSelect').innerHTML=
+ '<option value="">انتخاب اتاق</option>'+
+ rooms.map(r=>`<option value="${r.id}">${r.name} - ظرفیت ${r.max_capacity} نفر</option>`).join('');
+}
+
+async function loadReservations(){
+ const {data,error}=await db.from('reservations')
+ .select('*,rooms(name),guests(full_name,phone)')
+ .order('created_at',{ascending:false});
+
+ if(error){
+ document.getElementById('recent').textContent=error.message;
+ return;
+ }
+
+ const html=(data||[]).map(r=>`
+ <div class="reservation">
+ <b>${r.guests?.full_name||'مهمان'}</b>
+ <div>${r.rooms?.name||'اتاق'} | ${r.check_in} تا ${r.check_out}</div>
+ <div class="muted">وضعیت: ${r.status}</div>
+ </div>`).join('');
+
+ document.getElementById('total').textContent=(data||[]).length;
+ document.getElementById('recent').innerHTML=html||'هنوز رزروی ثبت نشده است.';
+ document.getElementById('reservationList').innerHTML=html||'رزروی وجود ندارد.';
+}
+
+document.getElementById('bookingForm').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const msg=document.getElementById('bookingMessage');
+ msg.textContent='در حال ثبت رزرو...';
+
+ const room=rooms.find(r=>r.id===document.getElementById('roomSelect').value);
+ if(!room){msg.textContent='اتاق را انتخاب کنید.';return;}
+
+ const adults=Number(document.getElementById('adults').value);
+ const children=Number(document.getElementById('children').value);
+ const infants=Number(document.getElementById('infants').value);
+ const totalPeople=adults+children;
+
+ if(totalPeople>room.max_capacity){
+ msg.textContent='تعداد مهمانان بیشتر از ظرفیت اتاق است.';
+ return;
+ }
+
+ const checkIn=document.getElementById('checkin').value;
+ const checkOut=document.getElementById('checkout').value;
+
+ if(checkOut<=checkIn){
+ msg.textContent='تاریخ خروج باید بعد از تاریخ ورود باشد.';
+ return;
+ }
+
+ const phone=document.getElementById('phone').value.trim();
+
+ let {data:guest,error}=await db.from('guests')
+ .select('id').eq('phone',phone).limit(1).maybeSingle();
+
+ if(error){msg.textContent=error.message;return;}
+
+ if(!guest){
+ const result=await db.from('guests').insert({
+ full_name:document.getElementById('guestName').value.trim(),
+ phone:phone
+ }).select('id').single();
+
+ if(result.error){msg.textContent=result.error.message;return;}
+ guest=result.data;
+ }
+
+ const amount=Number(document.getElementById('amount').value);
+ const deposit=Number(document.getElementById('deposit').value);
+
+ if(deposit>amount){
+ msg.textContent='بیعانه نمی‌تواند از مبلغ کل بیشتر باشد.';
+ return;
+ }
+
+ const {error:saveError}=await db.from('reservations').insert({
+ guest_id:guest.id,
+ room_id:room.id,
+ check_in:checkIn,
+ check_out:checkOut,
+ adults,children,infants,
+ total_amount:amount,
+ deposit_amount:deposit,
+ paid_amount:deposit,
+ status:'pending',
+ notes:document.getElementById('notes').value
+ });
+
+ if(saveError){
+ msg.textContent='خطا: '+saveError.message;
+ return;
+ }
+
+ msg.textContent='رزرو با موفقیت ثبت شد.';
+ e.target.reset();
+ document.getElementById('adults').value=1;
+ document.getElementById('amount').value=0;
+ document.getElementById('deposit').value=0;
+ await loadReservations();
+});
+
+db.auth.getSession().then(({data})=>{
+ if(data.session) startApp();
+});
+</script>
+</body>
+</html>
