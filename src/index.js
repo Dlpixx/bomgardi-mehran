@@ -33,7 +33,6 @@ async function supabase(env, path, options={}) {
     ...options,
     headers: {
       "apikey": cfg.key,
-      "Authorization": "Bearer " + cfg.key,
       "Content-Type": "application/json",
       "Accept": "application/json",
       ...(options.headers || {})
