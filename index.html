@@ -96,9 +96,11 @@ form button{width:100%}
 <label>انتخاب اتاق</label>
 <select id="roomSelect" required></select>
 <label>تاریخ ورود</label>
-<input id="checkin" type="date" required>
+<input id="checkinDisplay" type="text" placeholder="انتخاب تاریخ ورود" readonly onclick="openJalaliPicker('checkin')">
+<input id="checkin" type="hidden" required>
 <label>تاریخ خروج</label>
-<input id="checkout" type="date" required>
+<input id="checkoutDisplay" type="text" placeholder="انتخاب تاریخ خروج" readonly onclick="openJalaliPicker('checkout')">
+<input id="checkout" type="hidden" required>
 <label>تعداد بزرگسال</label>
 <input id="adults" type="number" min="1" value="1" required>
 <label>تعداد کودک</label>
