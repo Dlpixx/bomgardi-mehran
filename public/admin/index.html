@@ -676,7 +676,10 @@ function reservationCard(r,actions=true){
   <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
   <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
   <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
-  ${(r.status==='pending'||(actions&&!['cancelled','checked_out'].includes(r.status)))?`<div class="action-row">\n   ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}\n   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}\n  </div>`:''}
+  ${(r.status==='pending'||(actions&&!['cancelled','checked_out'].includes(r.status)))?`<div class="action-row">
+   ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
+   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+  </div>`:''}
  </div>`;
 }
 function renderReservationList(){
