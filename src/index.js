@@ -58,6 +58,17 @@ function normalizePhone(value) {
   return phone;
 }
 
+function generateGuestAccessKey() {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+}
+async function hashGuestAccessKey(value) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+
 async function sendMelipayamakSms(env, to, text) {
   const phone = normalizePhone(to);
   if (!(phone.length === 11 && phone.startsWith("09") && /^[0-9]+$/.test(phone))) {
@@ -218,6 +229,62 @@ async function handleApi(request, env, url) {
     }
   }
 
+  if (url.pathname === "/api/guest/login" && request.method === "POST") {
+    let body;
+    try { body = await request.json(); }
+    catch { return json({ok:false,error:"اطلاعات ورود معتبر نیست."},400); }
+
+    const phone = normalizePhone(body.phone);
+    const trackingCode = String(body.tracking_code || "").trim().toUpperCase();
+    const accessKey = String(body.access_key || "").trim().toLowerCase();
+
+    if (!/^09\\d{9}$/.test(phone) || !/^[0-9A-F]{8}$/.test(trackingCode) || !/^[0-9a-f]{48}$/.test(accessKey)) {
+      return json({ok:false,error:"شماره موبایل، کد پیگیری یا کد ورود معتبر نیست."},400);
+    }
+
+    try {
+      const tokenHash = await hashGuestAccessKey(accessKey);
+      const matches = await supabase(env,
+        "reservations?select=id,check_in,check_out,status,adults,children,infants,total_amount,deposit_amount,paid_amount,rooms(name),guests(full_name,phone)&guest_access_token_hash=eq." +
+        encodeURIComponent(tokenHash) + "&limit=1"
+      );
+      const reservation = matches?.[0];
+      if (!reservation ||
+          normalizePhone(reservation.guests?.phone) !== phone ||
+          reservation.id.slice(-8).toUpperCase() !== trackingCode) {
+        return json({ok:false,error:"اطلاعات ورود صحیح نیست یا رزرو پیدا نشد."},401);
+      }
+
+      if (!["confirmed","checked_in","checked_out"].includes(reservation.status)) {
+        return json({ok:false,error:"ورود مهمان پس از تأیید رزرو توسط مدیریت فعال می‌شود."},403);
+      }
+
+      const total = Number(reservation.total_amount || 0);
+      const paid = Number(reservation.paid_amount || 0);
+      return json({
+        ok:true,
+        guest:{full_name:reservation.guests?.full_name || "مهمان گرامی",phone},
+        reservation:{
+          tracking_code:trackingCode,
+          room_name:reservation.rooms?.name || "اتاق",
+          check_in:reservation.check_in,
+          check_out:reservation.check_out,
+          status:reservation.status,
+          adults:Number(reservation.adults || 0),
+          children:Number(reservation.children || 0),
+          infants:Number(reservation.infants || 0),
+          total_amount:total,
+          deposit_amount:Number(reservation.deposit_amount || 0),
+          paid_amount:paid,
+          remaining_amount:Math.max(0,total-paid)
+        }
+      });
+    } catch (error) {
+      console.error("GUEST_LOGIN_FAILED",{code:error.code||null,status:error.status||null});
+      return json({ok:false,error:"ورود مهمان در حال حاضر امکان‌پذیر نیست. لطفاً بعداً تلاش کنید."},500);
+    }
+  }
+
   if (url.pathname === "/api/feedback" && request.method === "GET") {
     const token = String(url.searchParams.get("token") || "").trim();
     if (!/^[0-9a-f-]{36}$/i.test(token)) return json({ok:false,error:"لینک نظرسنجی معتبر نیست."},400);
@@ -343,6 +410,8 @@ async function handleApi(request, env, url) {
 
       const pricingRules = await getPricingRules(env);
       const quote = calculateStayPrice(pricingRules, room.id, checkIn, checkOut);
+      const guestAccessKey = generateGuestAccessKey();
+      const guestAccessHash = await hashGuestAccessKey(guestAccessKey);
       const reservation = await supabase(env,"reservations",{
         method:"POST",
         headers:{"Prefer":"return=representation"},
@@ -351,6 +420,7 @@ async function handleApi(request, env, url) {
           check_in:checkIn, check_out:checkOut,
           adults, children, infants,
           total_amount:quote ? quote.total : 0, deposit_amount:0, paid_amount:0,
+          guest_access_token_hash:guestAccessHash,
           status:"pending",
           booking_source:"سایت بوم‌گردی مهران",
           notes:[ "درخواست ثبت‌شده از سایت عمومی", notes, quote ? "مبلغ براساس تعرفه‌های ثبت‌شده محاسبه شد." : "مبلغ پس از بررسی مدیریت اعلام می‌شود." ].filter(Boolean).join(" | ")
@@ -395,6 +465,7 @@ async function handleApi(request, env, url) {
         ok:true,
         message:"درخواست شما ثبت شد و پس از بررسی مدیر با شما تماس گرفته می‌شود.",
         tracking_code:saved?.id ? saved.id.slice(-8).toUpperCase() : null,
+        guest_access_key:saved?.id ? guestAccessKey : null,
         status:"pending"
       },201);
     } catch (error) {
