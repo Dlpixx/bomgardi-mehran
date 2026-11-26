@@ -169,6 +169,77 @@ async function handleApi(request, env, url) {
     }
   }
 
+  if (url.pathname === "/api/feedback" && request.method === "GET") {
+    const token = String(url.searchParams.get("token") || "").trim();
+    if (!/^[0-9a-f-]{36}$/i.test(token)) return json({ok:false,error:"لینک نظرسنجی معتبر نیست."},400);
+    try {
+      const matches = await supabase(env,
+        "reservations?select=id,check_out,status,rooms(name),guests(full_name)&review_token=eq." +
+        encodeURIComponent(token) + "&limit=1"
+      );
+      const reservation = matches?.[0];
+      if (!reservation) return json({ok:false,error:"این لینک پیدا نشد یا معتبر نیست."},404);
+      const eligible = reservation.status === "checked_out" || reservation.check_out <= tehranToday();
+      if (!eligible) return json({ok:false,error:"فرم رضایت پس از پایان اقامت فعال می‌شود."},403);
+      const existing = await supabase(env,
+        "guest_reviews?select=id,cleanliness,staff,room_quality,overall,comment,created_at&reservation_id=eq." +
+        encodeURIComponent(reservation.id) + "&limit=1"
+      );
+      return json({
+        ok:true,
+        guest_name:reservation.guests?.full_name || "مهمان گرامی",
+        room_name:reservation.rooms?.name || "اقامتگاه",
+        check_out:reservation.check_out,
+        submitted:!!existing?.length,
+        review:existing?.[0] || null
+      });
+    } catch (error) {
+      console.error("FEEDBACK_LOOKUP_FAILED", {code:error.code||null,status:error.status||null});
+      return json({ok:false,error:"دریافت اطلاعات فرم رضایت با خطا مواجه شد."},500);
+    }
+  }
+
+  if (url.pathname === "/api/feedback" && request.method === "POST") {
+    let body;
+    try { body = await request.json(); } catch { return json({ok:false,error:"اطلاعات ارسالی معتبر نیست."},400); }
+    const token = String(body.token || "").trim();
+    if (!/^[0-9a-f-]{36}$/i.test(token)) return json({ok:false,error:"لینک نظرسنجی معتبر نیست."},400);
+    const fields = ["cleanliness","staff","room_quality","overall"];
+    const ratings = {};
+    for (const field of fields) {
+      const value = Number(body[field]);
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        return json({ok:false,error:"لطفاً برای همه موارد امتیاز ۱ تا ۵ انتخاب کنید."},400);
+      }
+      ratings[field] = value;
+    }
+    const comment = String(body.comment || "").trim().slice(0,1500);
+    try {
+      const matches = await supabase(env,
+        "reservations?select=id,check_out,status&review_token=eq." +
+        encodeURIComponent(token) + "&limit=1"
+      );
+      const reservation = matches?.[0];
+      if (!reservation) return json({ok:false,error:"این لینک پیدا نشد یا معتبر نیست."},404);
+      const eligible = reservation.status === "checked_out" || reservation.check_out <= tehranToday();
+      if (!eligible) return json({ok:false,error:"فرم رضایت پس از پایان اقامت فعال می‌شود."},403);
+      const existing = await supabase(env,
+        "guest_reviews?select=id&reservation_id=eq." + encodeURIComponent(reservation.id) + "&limit=1"
+      );
+      if (existing?.length) return json({ok:false,error:"نظر این اقامت قبلاً ثبت شده است."},409);
+      await supabase(env,"guest_reviews",{
+        method:"POST",
+        headers:{"Prefer":"return=minimal"},
+        body:JSON.stringify({...ratings,comment:comment||null,reservation_id:reservation.id})
+      });
+      return json({ok:true,message:"از اینکه تجربه اقامتتان را با ما به اشتراک گذاشتید سپاسگزاریم."},201);
+    } catch (error) {
+      if (error.code === "23505") return json({ok:false,error:"نظر این اقامت قبلاً ثبت شده است."},409);
+      console.error("FEEDBACK_SUBMIT_FAILED", {code:error.code||null,status:error.status||null});
+      return json({ok:false,error:"ثبت نظر با خطا مواجه شد. لطفاً دوباره تلاش کنید."},500);
+    }
+  }
+
   if (url.pathname === "/api/bookings" && request.method === "POST") {
     let body;
     try { body = await request.json(); } catch { return json({ok:false,error:"اطلاعات ارسالی معتبر نیست."},400); }
