@@ -238,7 +238,7 @@ async function handleApi(request, env, url) {
     const trackingCode = String(body.tracking_code || "").trim().toUpperCase();
     const accessKey = String(body.access_key || "").trim().toLowerCase();
 
-    if (!/^09\\d{9}$/.test(phone) || !/^[0-9A-F]{8}$/.test(trackingCode) || !/^[0-9a-f]{48}$/.test(accessKey)) {
+    if (!/^09\d{9}$/.test(phone) || !/^[0-9A-F]{8}$/.test(trackingCode) || !/^[0-9a-f]{48}$/.test(accessKey)) {
       return json({ok:false,error:"شماره موبایل، کد پیگیری یا کد ورود معتبر نیست."},400);
     }
 
