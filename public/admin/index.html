@@ -774,7 +774,7 @@ function reservationCard(r,actions=true){
   <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
   ${(r.status==='pending'||(actions&&r.status!=='cancelled'))?`<div class="action-row">
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
-   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">ثبت پرداخت</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="secondary" onclick="addPayment('${r.id}')">تأیید و ثبت واریزی</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
    ${actions&&r.status!=='cancelled'?`<button class="secondary" onclick="printInvoice('${r.id}')">فاکتور / رسید</button>`:''}
    ${actions&&['confirmed','checked_in','checked_out'].includes(r.status)?`<button class="secondary" onclick="prepareWelcomeMessage('${r.id}')">آماده‌سازی پیامک خوشامدگویی</button>`:''}
    ${actions&&r.status!=='cancelled'&&r.review_token&&(r.status==='checked_out'||r.check_out<todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
@@ -1145,14 +1145,19 @@ async function copyWelcomeMessage(){
 
 async function addPayment(id){
  const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
- const amountText=prompt('مبلغ پرداخت جدید به تومان را وارد کن:');if(amountText===null)return;
+ const remaining=Math.max(0,Number(r.total_amount||0)-Number(r.paid_amount||0));
+ if(remaining<=0){alert('این رزرو قبلاً به‌طور کامل تسویه شده است.');return;}
+ const amountText=prompt('پس از بررسی واریز بانکی مهمان، مبلغ تأییدشده را به تومان وارد کنید:');if(amountText===null)return;
  const amount=Number(amountText.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[,،\s]/g,''));
- if(!Number.isFinite(amount)||amount<=0){alert('مبلغ پرداخت معتبر نیست.');return;}
+ if(!Number.isFinite(amount)||amount<=0){alert('مبلغ واریزی معتبر نیست.');return;}
+ if(amount>remaining){alert('مبلغ واردشده از مانده حساب بیشتر است.');return;}
+ const approve=confirm('آیا واریز به حساب بانک مهر را بررسی کرده‌اید و دریافت مبلغ '+amount.toLocaleString('fa-IR')+' تومان را تأیید می‌کنید؟\n\nبا تأیید، مبلغ به پرداختی این رزرو اضافه می‌شود.');
+ if(!approve)return;
  const newPaid=Number(r.paid_amount||0)+amount;
- if(newPaid>Number(r.total_amount||0)){alert('مبلغ پرداختی جدید از مانده حساب بیشتر است.');return;}
- const {error}=await db.from('reservations').update({paid_amount:newPaid}).eq('id',id);
- if(error){alert('خطا در ثبت پرداخت: '+error.message);return;}
- await loadReservations();alert('پرداخت ثبت شد. مانده جدید: '+(Number(r.total_amount)-newPaid).toLocaleString('en-US')+' تومان');
+ const {data,error}=await db.from('reservations').update({paid_amount:newPaid}).eq('id',id).select('id,paid_amount').maybeSingle();
+ if(error){alert('خطا در ثبت واریزی: '+error.message);return;}
+ if(!data){alert('واریزی ثبت نشد؛ رزرو پیدا نشد یا دسترسی کافی ندارید.');return;}
+ await loadReservations();alert('واریزی با موفقیت تأیید و ثبت شد.\nمجموع پرداختی: '+newPaid.toLocaleString('fa-IR')+' تومان\nمانده حساب: '+(Number(r.total_amount)-newPaid).toLocaleString('fa-IR')+' تومان');
 }
 
 document.getElementById('bookingForm').addEventListener('submit',async e=>{
