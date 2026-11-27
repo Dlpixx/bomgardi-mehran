@@ -13,6 +13,8 @@ body{
   url('/assets/mehran-courtyard.webp') center center/cover fixed no-repeat!important;
  min-height:100vh;
 }
+body *{text-align:center!important}
+.calendar-grid .room-name,.report-chart-head,.report-table th,.report-table td{ text-align:center!important }
 header.site-header{
  width:100%;
  display:flex!important;
