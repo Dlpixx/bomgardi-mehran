@@ -694,8 +694,11 @@ async function loadReservations(){
  const listEl=document.getElementById('reservationList');
  recentEl.textContent='در حال دریافت اطلاعات...';
  listEl.textContent='در حال دریافت اطلاعات...';
+
+ // Load reservations independently from the optional payment ledger.
+ // No embedded FK relationship means a stale PostgREST schema cache cannot hide bookings.
  const {data,error}=await db.from('reservations')
-  .select('*, rooms(name), guests(full_name, phone), reservation_payments(id, amount, payment_method, status, confirmed_at)')
+  .select('*, rooms(name), guests(full_name, phone)')
   .order('created_at',{ascending:false});
  if(error){
   console.error(error);
@@ -703,7 +706,29 @@ async function loadReservations(){
   listEl.textContent='خطا در دریافت رزروها: '+error.message;
   return;
  }
+
  cachedReservations=data||[];
+ cachedReservations.forEach(r=>{r.reservation_payments=[];});
+
+ // Fetch payment history separately using reservation_id; the FK embed is not needed.
+ const reservationIds=cachedReservations.map(r=>r.id).filter(Boolean);
+ if(reservationIds.length){
+  const {data:payments,error:paymentError}=await db.from('reservation_payments')
+   .select('id,reservation_id,amount,payment_method,status,confirmed_at')
+   .in('reservation_id',reservationIds)
+   .order('confirmed_at',{ascending:false});
+  if(paymentError){
+   console.warn('PAYMENT_HISTORY_UNAVAILABLE',paymentError);
+  }else{
+   const paymentsByReservation=new Map();
+   (payments||[]).forEach(p=>{
+    if(!paymentsByReservation.has(String(p.reservation_id)))paymentsByReservation.set(String(p.reservation_id),[]);
+    paymentsByReservation.get(String(p.reservation_id)).push(p);
+   });
+   cachedReservations.forEach(r=>{r.reservation_payments=paymentsByReservation.get(String(r.id))||[];});
+  }
+ }
+
  document.getElementById('total').textContent=cachedReservations.filter(r=>r.status!=='cancelled').length;
  renderRoomStatus();
  renderReservationList();
