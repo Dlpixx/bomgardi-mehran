@@ -1124,39 +1124,20 @@ async function prepareWelcomeMessage(id){
  if(!r||!['confirmed','checked_in','checked_out'].includes(r.status)){
   alert('آماده‌سازی پیام خوشامدگویی فقط برای رزرو تأییدشده امکان‌پذیر است.');return;
  }
- const hasOldKey=!!r.guest_access_token_hash;
- const question=hasOldKey
-  ? 'برای این مهمان یک کد ورود جدید صادر شود؟ کد قبلی بلافاصله باطل می‌شود و متن پیامک با کد جدید آماده خواهد شد.'
-  : 'برای این مهمان کد ورود اختصاصی صادر و متن پیامک آماده شود؟';
- if(!confirm(question))return;
- try{
-  const bytes=new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const key=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
-  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key));
-  const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
-  const {data:updated,error}=await db.from('reservations').update({guest_access_token_hash:hash}).eq('id',id).select('id').maybeSingle();
-  if(error)throw error;
-  if(!updated)throw new Error('کد ورود در پایگاه داده ذخیره نشد؛ دوباره تلاش کنید.');
-  const guestName=String(r.guests?.full_name||'مهمان گرامی').trim();
-  const phone=String(r.guests?.phone||'').trim();
-  const trackingCode=String(r.id).slice(-8).toUpperCase();
-  const guestUrl=location.origin+'/guest/';
-  const message='سلام '+guestName+' عزیز 🌿\n'+
-   'خیلی خوش اومدید به بوم‌گردی مهران.\n'+
-   'امیدواریم اقامت دلنشین و خاطره‌انگیزی داشته باشید.\n\n'+
-   'برای ورود به پنل مهمان، اطلاعات زیر را در سایت وارد کنید:\n'+
-   'شماره موبایلی که هنگام رزرو ثبت کردید: '+phone+'\n'+
-   'کد پیگیری رزرو: '+trackingCode+'\n'+
-   'کد ورود اختصاصی (۴۸ کاراکتری): '+key+'\n\n'+
-   'لینک ورود به پنل مهمان:\n'+guestUrl;
-  document.getElementById('welcomeText').value=message;
-  document.getElementById('welcomeCopyStatus').textContent='کد ورود جدید صادر شد. متن آماده ارسال است؛ برای کپی روی دکمه زیر بزنید.';
-  document.getElementById('welcomeModal').classList.remove('hidden');
-  await loadReservations();
- }catch(error){
-  alert('آماده‌سازی پیام انجام نشد: '+(error.message||'خطای نامشخص'));
- }
+ const guestName=String(r.guests?.full_name||'مهمان گرامی').trim();
+ const phone=String(r.guests?.phone||'').trim();
+ const trackingCode=String(r.id).slice(-8).toUpperCase();
+ const guestUrl=location.origin+'/guest/';
+ const message='سلام '+guestName+' عزیز 🌿\n'+
+  'خیلی خوش اومدید به بوم‌گردی مهران.\n'+
+  'امیدواریم اقامت دلنشین و خاطره‌انگیزی داشته باشید.\n\n'+
+  'برای ورود به پنل مهمان، اطلاعات زیر را در سایت وارد کنید:\n'+
+  'شماره موبایلی که هنگام رزرو ثبت کردید: '+phone+'\n'+
+  'کد پیگیری رزرو: '+trackingCode+'\n\n'+
+  'لینک ورود به پنل مهمان:\n'+guestUrl;
+ document.getElementById('welcomeText').value=message;
+ document.getElementById('welcomeCopyStatus').textContent='متن خوشامدگویی آماده ارسال است؛ برای کپی روی دکمه زیر بزنید.';
+ document.getElementById('welcomeModal').classList.remove('hidden');
 }
 function closeWelcomeModal(){
  document.getElementById('welcomeModal').classList.add('hidden');
