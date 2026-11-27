@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.reservation_payments (
 );
 
 -- Ensure the FK exists even if this table was created by an earlier partial setup.
-DO $
+DO $do$
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -30,7 +30,7 @@ BEGIN
       ON DELETE CASCADE;
   END IF;
 END;
-$;
+$do$;
 
 CREATE INDEX IF NOT EXISTS reservation_payments_reservation_confirmed_idx
   ON public.reservation_payments (reservation_id, confirmed_at DESC);
