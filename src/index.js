@@ -58,17 +58,6 @@ function normalizePhone(value) {
   return phone;
 }
 
-function generateGuestAccessKey() {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
-}
-async function hashGuestAccessKey(value) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
-}
-
-
 async function sendMelipayamakSms(env, to, text) {
   const phone = normalizePhone(to);
   if (!(phone.length === 11 && phone.startsWith("09") && /^[0-9]+$/.test(phone))) {
@@ -236,22 +225,31 @@ async function handleApi(request, env, url) {
 
     const phone = normalizePhone(body.phone);
     const trackingCode = String(body.tracking_code || "").trim().toUpperCase();
-    const accessKey = String(body.access_key || "").trim().toLowerCase();
 
-    if (!/^09\d{9}$/.test(phone) || !/^[0-9A-F]{8}$/.test(trackingCode) || !/^[0-9a-f]{48}$/.test(accessKey)) {
-      return json({ok:false,error:"شماره موبایل، کد پیگیری یا کد ورود معتبر نیست."},400);
+    if (!/^09\d{9}$/.test(phone) || !/^[0-9A-F]{8}$/.test(trackingCode)) {
+      return json({ok:false,error:"شماره موبایل یا کد پیگیری معتبر نیست."},400);
     }
 
     try {
-      const tokenHash = await hashGuestAccessKey(accessKey);
-      const matches = await supabase(env,
-        "reservations?select=id,check_in,check_out,status,adults,children,infants,total_amount,deposit_amount,paid_amount,rooms(name),guests(full_name,phone)&guest_access_token_hash=eq." +
-        encodeURIComponent(tokenHash) + "&limit=1"
+      // Find the guest by the phone number supplied during booking, then match
+      // the final eight hexadecimal characters of the reservation UUID.
+      const guests = await supabase(env,
+        "guests?select=id,full_name,phone&phone=eq." + encodeURIComponent(phone) + "&limit=1"
       );
-      const reservation = matches?.[0];
-      if (!reservation ||
-          normalizePhone(reservation.guests?.phone) !== phone ||
-          reservation.id.slice(-8).toUpperCase() !== trackingCode) {
+      const guest = guests?.[0];
+      if (!guest?.id) {
+        return json({ok:false,error:"اطلاعات ورود صحیح نیست یا رزرو پیدا نشد."},401);
+      }
+
+      const reservations = await supabase(env,
+        "reservations?select=id,check_in,check_out,status,adults,children,infants,total_amount,deposit_amount,paid_amount,rooms(name)&guest_id=eq." +
+        encodeURIComponent(guest.id) + "&order=created_at.desc&limit=1000"
+      );
+      const reservation = (reservations || []).find(item =>
+        String(item.id || "").slice(-8).toUpperCase() === trackingCode
+      );
+
+      if (!reservation) {
         return json({ok:false,error:"اطلاعات ورود صحیح نیست یا رزرو پیدا نشد."},401);
       }
 
@@ -263,7 +261,7 @@ async function handleApi(request, env, url) {
       const paid = Number(reservation.paid_amount || 0);
       return json({
         ok:true,
-        guest:{full_name:reservation.guests?.full_name || "مهمان گرامی",phone},
+        guest:{full_name:guest.full_name || "مهمان گرامی",phone},
         reservation:{
           tracking_code:trackingCode,
           room_name:reservation.rooms?.name || "اتاق",
@@ -410,8 +408,6 @@ async function handleApi(request, env, url) {
 
       const pricingRules = await getPricingRules(env);
       const quote = calculateStayPrice(pricingRules, room.id, checkIn, checkOut);
-      const guestAccessKey = generateGuestAccessKey();
-      const guestAccessHash = await hashGuestAccessKey(guestAccessKey);
       const reservation = await supabase(env,"reservations",{
         method:"POST",
         headers:{"Prefer":"return=representation"},
@@ -420,7 +416,6 @@ async function handleApi(request, env, url) {
           check_in:checkIn, check_out:checkOut,
           adults, children, infants,
           total_amount:quote ? quote.total : 0, deposit_amount:0, paid_amount:0,
-          guest_access_token_hash:guestAccessHash,
           status:"pending",
           booking_source:"سایت بوم‌گردی مهران",
           notes:[ "درخواست ثبت‌شده از سایت عمومی", notes, quote ? "مبلغ براساس تعرفه‌های ثبت‌شده محاسبه شد." : "مبلغ پس از بررسی مدیریت اعلام می‌شود." ].filter(Boolean).join(" | ")
@@ -465,7 +460,6 @@ async function handleApi(request, env, url) {
         ok:true,
         message:"درخواست شما ثبت شد و پس از بررسی مدیر با شما تماس گرفته می‌شود.",
         tracking_code:saved?.id ? saved.id.slice(-8).toUpperCase() : null,
-        guest_access_key:saved?.id ? guestAccessKey : null,
         status:"pending"
       },201);
     } catch (error) {
