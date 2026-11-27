@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#56351f">
+<title>ورود مهمان | بوم‌گردی مهران</title>
+<style>
+:root{--brown:#56351f;--copper:#80502e;--gold:#e8c99e;--paper:#f7f3ec;--ink:#35271e;--muted:#806d5d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Tahoma,Arial,sans-serif;line-height:1.9}
+header{background:var(--brown);color:#fff;padding:22px max(18px,calc((100% - 760px)/2));border-radius:0 0 24px 24px}
+header strong{font-size:23px}header small{display:block;color:#ead8c3}
+main{max-width:760px;margin:auto;padding:22px 16px 55px}
+.card{background:#fff;border:1px solid #eee4d8;border-radius:19px;padding:20px;margin-bottom:15px;box-shadow:0 5px 20px #43250b08}
+h1{font-size:23px;color:var(--brown);margin:0 0 5px}h2{font-size:17px;color:var(--brown);margin:0 0 14px}
+.muted{font-size:12px;color:var(--muted)}
+label{display:block;font-size:12px;color:#685747;margin:0 0 6px}
+.field{margin:14px 0}
+input{width:100%;padding:13px;border:1px solid #ded2c5;border-radius:11px;background:#fff;color:var(--ink);font:inherit;font-size:14px}
+input.code{direction:ltr;text-align:left;letter-spacing:2px;font-family:monospace}
+button,.button{display:inline-block;border:0;border-radius:11px;background:var(--copper);color:#fff;padding:13px 18px;font:inherit;font-weight:bold;cursor:pointer;text-align:center;text-decoration:none}
+button:disabled{opacity:.55;cursor:not-allowed}
+.secondary{background:#eee5da;color:var(--brown)}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.actions>*{flex:1}
+#message{display:none;margin-top:13px;padding:12px;border-radius:11px;font-size:13px}
+#message.err{display:block;background:#fff0ed;color:#9b3024}
+#message.ok{display:block;background:#eaf5ec;color:#236b39}
+#guestPanel{display:none}
+.status{display:inline-block;padding:5px 11px;border-radius:20px;background:#eaf5ec;color:#236b39;font-size:12px;font-weight:bold}
+.details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+.item{background:#f7f3ec;border-radius:12px;padding:12px;min-width:0}
+.item small{display:block;color:var(--muted);font-size:11px}
+.item strong{display:block;color:var(--brown);font-size:14px;overflow-wrap:anywhere}
+.money{border-top:1px solid #eee4d8;margin-top:18px;padding-top:10px}
+.money-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;font-size:13px}
+.money-row.total{font-weight:bold;color:var(--brown);font-size:16px}
+footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
+@media(max-width:480px){.card{padding:16px}.details{grid-template-columns:1fr}}
+
+/* Bank Mehr-inspired guest transfer panel */
+.bank-payment{position:relative;overflow:hidden;margin-top:18px;padding:20px 17px;border:1px solid #d8c66c;border-radius:20px;background:radial-gradient(circle at 12% 15%,#a8d94a55 0 2px,transparent 3px),radial-gradient(circle at 82% 70%,#d7e96c33 0 2px,transparent 3px),repeating-linear-gradient(135deg,#ffffff0b 0 2px,transparent 2px 13px),linear-gradient(145deg,#6eaa16 0%,#3e8d16 42%,#17683c 100%);color:#fff;box-shadow:0 8px 22px #174e2526}
+.bank-payment:before{content:"";position:absolute;inset:8px;border:1px solid #f4df7a99;border-radius:15px;pointer-events:none}
+.bank-payment>*{position:relative;z-index:1}
+.bank-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 4px 14px;border-bottom:1px solid #f4df7a66}
+.bank-brand{font-size:15px;font-weight:bold;color:#fff8d9}.bank-caption{font-size:11px;color:#f3f4cf}
+.bank-mark{width:38px;height:38px;display:grid;place-items:center;border-radius:50%;background:#f4eaa9;color:#246a36;font-size:22px;font-weight:bold;box-shadow:0 2px 8px #174e2544}
+.bank-owner{margin:13px 0 12px;padding:10px 12px;border-radius:12px;background:#123f2c55;border:1px solid #d5e59a66;color:#fff;font-size:14px}
+.bank-account{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;margin:9px 0;border-radius:12px;background:#fffdf0ed;color:#25472d;border:1px solid #e9dc8c}
+.bank-account-copy{min-width:0;display:flex;flex-direction:column;gap:4px}.bank-account-copy small{font-size:10px;color:#6b784a}.bank-account-copy strong{font-size:14px;direction:ltr;text-align:left;letter-spacing:.4px;overflow-wrap:anywhere;color:#25472d}
+.bank-copy{flex:0 0 auto;padding:8px 10px;border-radius:9px;background:#246b3b;color:white;font-size:11px;font-weight:bold}
+.bank-notice{margin:14px 2px 0;padding:11px 12px;border-radius:12px;background:#143f2dcc;border:1px solid #d7e78c77;color:#fffde7;font-size:12px;line-height:2}
+.bank-notice a{color:#fff2a6;font-weight:bold;text-decoration:none;direction:ltr;display:inline-block}
+.bank-settled{margin-top:18px;padding:14px;border-radius:13px;background:#eaf5ec;color:#236b39;font-size:13px;font-weight:bold}
+@media(max-width:480px){.bank-payment{padding:17px 13px}.bank-account{align-items:flex-start}.bank-account-copy strong{font-size:12px}}
+</style>
+<link rel="stylesheet" href="/assets/site-theme.css">
+</head>
+<body>
+<header class="site-header">
+<img class="site-logo" src="/assets/mehran-logo.jpg" alt="لوگوی بوم‌گردی مهران" width="128" height="128" fetchpriority="high">
+<div class="site-brand"><strong>بوم‌گردی مهران</strong><small>سامانه رزرو آنلاین اقامت در یزد</small></div>
+</header>
+<main>
+<section class="card" id="loginCard">
+<h1>ورود مهمان 🌿</h1>
+<p class="muted">این بخش مخصوص مهمانانی است که درخواست رزرو آن‌ها توسط مدیریت بوم‌گردی مهران تأیید شده است.</p>
+<form id="guestLoginForm">
+ <div class="field">
+  <label for="phone">شماره موبایل ثبت‌شده در رزرو</label>
+  <input id="phone" inputmode="tel" autocomplete="tel" maxlength="14" required placeholder="09123456789">
+ </div>
+ <div class="field">
+  <label for="trackingCode">کد پیگیری رزرو</label>
+  <input id="trackingCode" class="code" dir="ltr" maxlength="8" minlength="8" pattern="[0-9A-Fa-f]{8}" required autocomplete="off" placeholder="مثلاً A1B2C3D4">
+ </div>
+ <div class="muted">برای ورود، شماره موبایل ثبت‌شده هنگام رزرو و کد پیگیری ۸ رقمی را وارد کنید. ورود فقط پس از تأیید رزرو توسط مدیریت فعال است.</div>
+ <div class="actions" style="margin-top:16px"><button id="loginBtn" type="submit">ورود به پنل مهمان</button><a class="button secondary" href="/">بازگشت</a></div>
+ <div id="message" role="status" aria-live="polite"></div>
+</form>
+</section>
+
+<section class="card" id="guestPanel">
+ <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+  <div><h1>خوش آمدید <span id="guestName"></span> 🌿</h1><div class="muted">اطلاعات رزرو شما در بوم‌گردی مهران</div></div>
+  <span class="status" id="reservationStatus"></span>
+ </div>
+ <div class="details">
+  <div class="item"><small>کد پیگیری</small><strong id="viewTracking"></strong></div>
+  <div class="item"><small>شماره موبایل</small><strong id="viewPhone"></strong></div>
+  <div class="item"><small>اتاق رزروشده</small><strong id="viewRoom"></strong></div>
+  <div class="item"><small>تاریخ ورود</small><strong id="viewCheckin"></strong></div>
+  <div class="item"><small>تاریخ خروج</small><strong id="viewCheckout"></strong></div>
+  <div class="item"><small>تعداد مسافران</small><strong id="viewGuests"></strong></div>
+ </div>
+ <div class="money">
+  <div class="money-row"><span>مبلغ کل اقامت</span><strong id="viewTotal"></strong></div>
+  <div class="money-row"><span>بیعانه ثبت‌شده</span><strong id="viewDeposit"></strong></div>
+  <div class="money-row"><span>مجموع پرداختی</span><strong id="viewPaid"></strong></div>
+  <div class="money-row total"><span>مانده قابل پرداخت</span><strong id="viewRemaining"></strong></div>
+ </div>
+ <section id="bankPaymentSection" class="bank-payment" aria-label="اطلاعات واریز بانکی">
+  <div class="bank-head"><div><div class="bank-brand">بانک قرض‌الحسنه مهر ایران</div><div class="bank-caption">اطلاعات واریز هزینه اقامت · بوم‌گردی مهران</div></div><div class="bank-mark" aria-hidden="true">م</div></div>
+  <div class="bank-owner">به نام: <strong>عرفان دوست گل</strong></div>
+  <div class="bank-account"><div class="bank-account-copy"><small>شماره کارت</small><strong>6063 7311 7955 2857</strong></div><button class="bank-copy" type="button" onclick="copyBankValue('6063731179552857',this)">کپی کارت</button></div>
+  <div class="bank-account"><div class="bank-account-copy"><small>شماره حساب</small><strong>761770015814724001</strong></div><button class="bank-copy" type="button" onclick="copyBankValue('761770015814724001',this)">کپی حساب</button></div>
+  <div class="bank-account"><div class="bank-account-copy"><small>شماره شبا</small><strong>IR370600761770015814724001</strong></div><button class="bank-copy" type="button" onclick="copyBankValue('IR370600761770015814724001',this)">کپی شبا</button></div>
+  <div class="bank-notice">پس از واریز وجه، حتماً پرداخت خود را به شماره زیر اطلاع دهید:<br><a href="tel:09924950826">09924950826</a></div>
+ </section>
+ <div id="bankSettled" class="bank-settled" hidden>حساب این رزرو تسویه شده است. از همراهی شما سپاسگزاریم 🌿</div>
+ <p class="muted">در صورت نیاز به اصلاح اطلاعات رزرو یا پیگیری پرداخت، با مدیریت بوم‌گردی مهران تماس بگیرید.</p>
+ <div class="actions"><button class="secondary" type="button" onclick="resetPortal()">خروج از پنل مهمان</button><a class="button" href="/">صفحه اصلی</a></div>
+</section>
+<footer>بوم‌گردی مهران · یزد</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function normalizeDigits(value){return String(value||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));}
+function normalizePhone(value){let p=normalizeDigits(value).replace(/[\s-]/g,'');if(p.startsWith('+98'))p='0'+p.slice(3);if(p.startsWith('0098'))p='0'+p.slice(4);return p;}
+function formatDate(iso){if(!iso)return '—';const [y,m,d]=iso.split('-').map(Number);return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'long',day:'numeric',timeZone:'Asia/Tehran'}).format(new Date(Date.UTC(y,m-1,d,12)));}
+function money(value){return Number(value||0).toLocaleString('fa-IR')+' تومان';}
+function showError(message){$('message').textContent=message;$('message').className='err';}
+function renderGuest(data){
+ const r=data.reservation;
+ $('guestName').textContent=data.guest.full_name;
+ $('reservationStatus').textContent=({confirmed:'رزرو تأیید شده',checked_in:'در حال اقامت',checked_out:'اقامت پایان یافته'})[r.status]||r.status;
+ $('viewTracking').textContent=r.tracking_code;
+ $('viewPhone').textContent=data.guest.phone;
+ $('viewRoom').textContent=r.room_name;
+ $('viewCheckin').textContent=formatDate(r.check_in);
+ $('viewCheckout').textContent=formatDate(r.check_out);
+ $('viewGuests').textContent='بزرگسال '+r.adults+' · کودک '+r.children+' · نوزاد '+r.infants;
+ $('viewTotal').textContent=money(r.total_amount);
+ $('viewDeposit').textContent=money(r.deposit_amount);
+ $('viewPaid').textContent=money(r.paid_amount);
+ $('viewRemaining').textContent=money(r.remaining_amount);
+ const isSettled=Number(r.remaining_amount||0)<=0;
+ $('bankPaymentSection').hidden=isSettled;
+ $('bankSettled').hidden=!isSettled;
+ $('loginCard').style.display='none';$('guestPanel').style.display='block';
+}
+$('guestLoginForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const btn=$('loginBtn');btn.disabled=true;btn.textContent='در حال بررسی اطلاعات...';
+ $('message').className='';$('message').textContent='';
+ try{
+  const phone=normalizePhone($('phone').value);
+  const trackingCode=normalizeDigits($('trackingCode').value).trim().toUpperCase();
+  // Hidden manager shortcut; actual access still requires the manager's Supabase login.
+  if(phone==='09133543411'&&trackingCode==='09133543'){
+   location.assign('/admin/');
+   return;
+  }
+  const payload={phone,tracking_code:trackingCode};
+  const response=await fetch('/api/guest/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
+  const result=await response.json();
+  if(!response.ok||!result.ok)throw new Error(result.error||'ورود انجام نشد.');
+  renderGuest(result);
+ }catch(error){showError(error.message||'ورود انجام نشد.');}
+ finally{btn.disabled=false;btn.textContent='ورود به پنل مهمان';}
+});
+async function copyBankValue(value,button){
+ const original=button.textContent;
+ try{
+  await navigator.clipboard.writeText(value);
+  button.textContent='کپی شد ✓';
+ }catch(error){
+  const field=document.createElement('textarea');field.value=value;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field);field.select();
+  const copied=document.execCommand('copy');field.remove();
+  button.textContent=copied?'کپی شد ✓':'کپی نشد';
+ }
+ setTimeout(()=>button.textContent=original,1800);
+}
+function resetPortal(){ $('guestPanel').style.display='none';$('loginCard').style.display='block';$('guestLoginForm').reset(); }
+</script>
+</body>
+</html>
