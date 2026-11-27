@@ -23,11 +23,11 @@ Before using pricing rules or guest feedback, run `database/upgrade-guesthouse-f
 
 ## Guest portal
 
-The public home page includes a separate guest login at `/guest/`. A guest signs in with the reservation phone number, the 8-character booking tracking code, and a private 48-character random access key. Only reservations with status `confirmed`, `checked_in`, or `checked_out` can open the guest portal; pending and cancelled reservations are denied.
+The public home page includes a separate guest login at `/guest/`. A guest signs in with the mobile number registered on the reservation and the 8-character booking tracking code. Only reservations with status `confirmed`, `checked_in`, or `checked_out` can open the guest portal; pending and cancelled reservations are denied. The manager shortcut remains hidden on the guest login page and redirects to the manager sign-in page; actual manager access still requires the manager's Supabase credentials.
 
-New online bookings receive the access key once on the booking success screen. The database stores only its SHA-256 hash. If a guest loses the key, an authenticated manager can issue a replacement from the reservation card; issuing a new key invalidates the previous one.
+New bookings show only the tracking code. The guest welcome message prepared by the manager includes the registered mobile number, tracking code, and guest portal link.
 
-Before deploying this feature, run `database/upgrade-guest-login.sql` once in the Supabase SQL Editor. Existing reservations have no guest key until the manager issues one after approval.
+After deploying this update, run `database/remove-guest-access-key.sql` once in the Supabase SQL Editor to remove the obsolete guest access-key hash column and its index.
 
 ## Manual bank transfer for guest reservations
 
