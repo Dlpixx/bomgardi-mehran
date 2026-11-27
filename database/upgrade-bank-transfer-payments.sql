@@ -13,6 +13,25 @@ CREATE TABLE IF NOT EXISTS public.reservation_payments (
   confirmed_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Ensure the FK exists even if this table was created by an earlier partial setup.
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_constraint
+     WHERE conrelid = 'public.reservation_payments'::regclass
+       AND confrelid = 'public.reservations'::regclass
+       AND contype = 'f'
+  ) THEN
+    ALTER TABLE public.reservation_payments
+      ADD CONSTRAINT reservation_payments_reservation_id_fkey
+      FOREIGN KEY (reservation_id)
+      REFERENCES public.reservations(id)
+      ON DELETE CASCADE;
+  END IF;
+END;
+$;
+
 CREATE INDEX IF NOT EXISTS reservation_payments_reservation_confirmed_idx
   ON public.reservation_payments (reservation_id, confirmed_at DESC);
 
@@ -96,3 +115,6 @@ $$;
 REVOKE ALL ON FUNCTION public.confirm_bank_transfer_payment(uuid, numeric) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.confirm_bank_transfer_payment(uuid, numeric) FROM anon;
 GRANT EXECUTE ON FUNCTION public.confirm_bank_transfer_payment(uuid, numeric) TO authenticated;
+
+-- Refresh PostgREST's relationship cache after installing the FK.
+NOTIFY pgrst, 'reload schema';
