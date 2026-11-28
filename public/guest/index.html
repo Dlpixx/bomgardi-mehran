@@ -55,7 +55,16 @@ footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
 @media(max-width:480px){.bank-payment{padding:17px 13px}.bank-account{align-items:flex-start}.bank-account-copy strong{font-size:12px}}
 </style>
 <link rel="stylesheet" href="/assets/site-theme.css">
-</head>
+<style>
+#guestPanel{background:transparent!important;padding:0!important;border:0!important;box-shadow:none!important}
+.guest-welcome{background:linear-gradient(145deg,#56351f,#80502e);color:#fff;border-radius:24px;padding:16px;margin-bottom:14px;box-shadow:0 8px 24px #35271e30}
+.guest-welcome img{width:100%;height:clamp(145px,35vw,260px);object-fit:cover;border-radius:17px;display:block}
+.guest-welcome h1{color:white;font-size:21px;margin:16px 0 3px}.guest-welcome p{color:#f0dfca;font-size:13px;margin:0 0 4px}
+.stay-heading,.feature-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.stay-heading h2,.feature-heading h2{margin:0}
+.stay-room{font-size:23px;margin:14px 0;color:#56351f}.stay-stats{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #eee4d8;padding-top:12px;gap:12px}.stay-stats>div{background:#f7f3ec;padding:12px;border-radius:14px}.stay-stats small,.stay-stats strong{display:block}.stay-stats small{font-size:12px;color:#806d5d}.stay-stats strong{font-size:18px;color:#56351f}.stay-card details{margin-top:14px}.stay-card summary{cursor:pointer;color:#80502e;font-size:13px}
+.concierge-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.concierge-tile{width:100%;min-width:0;min-height:98px;display:flex!important;flex-direction:column;gap:8px;padding:12px 5px;border:1px solid #e6d6c4;border-radius:18px;background:#fff!important;color:#56351f!important;box-shadow:0 4px 12px #35271e12;font-size:12px;line-height:1.6}.concierge-tile svg{width:29px;height:29px;color:#80502e}.concierge-tile:hover,.concierge-tile:focus-visible{background:#f4e7d5!important;outline:2px solid #c8a77e}.concierge-tile[aria-expanded=true]{background:#f1dfc6!important}.feature-panel p{font-size:14px}.feature-heading button{padding:6px 12px;font-size:12px}.guest-signoff{background:#56351f;color:white;padding:16px;border-radius:18px;margin:14px 0;font-weight:bold}.contact-options{display:flex;flex-direction:column;gap:8px}.contact-options a{overflow-wrap:anywhere}
+#guestPanel [hidden]{display:none!important}@media(max-width:360px){.concierge-grid{gap:6px}.concierge-tile{font-size:11px;min-height:90px}}
+</style></head>
 <body>
 <header class="site-header">
 <img class="site-logo" src="/assets/mehran-logo.jpg" alt="لوگوی بوم‌گردی مهران" width="128" height="128" fetchpriority="high">
@@ -80,12 +89,9 @@ footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
 </form>
 </section>
 
-<section class="card" id="guestPanel">
- <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-  <div><h1>خوش آمدید <span id="guestName"></span> 🌿</h1><div class="muted">اطلاعات رزرو شما در بوم‌گردی مهران</div></div>
-  <span class="status" id="reservationStatus"></span>
- </div>
- <div class="details">
+<section id="guestPanel" aria-label="پنل اختصاصی مهمان">
+<section class="guest-welcome"><img src="/assets/mehran-courtyard.jpg" alt="حیاط بوم‌گردی مهران"><h1><span id="guestName"></span> عزیز، خوش آمدید 🌿</h1><p>از اینکه ما را برای اقامت انتخاب کردید، خوشحالیم.</p></section>
+<section class="card stay-card"><div class="stay-heading"><h2>اقامت من</h2><span class="status" id="reservationStatus"></span></div><h2 class="stay-room" id="roomHeadline"></h2><div class="stay-stats"><div><small>مدت اقامت</small><strong id="stayNights"></strong></div><div><small>تعداد مهمانان</small><strong id="stayPeople"></strong></div></div><details><summary>مشاهده جزئیات رزرو</summary> <div class="details">
   <div class="item"><small>کد پیگیری</small><strong id="viewTracking"></strong></div>
   <div class="item"><small>شماره موبایل</small><strong id="viewPhone"></strong></div>
   <div class="item"><small>اتاق رزروشده</small><strong id="viewRoom"></strong></div>
@@ -93,7 +99,10 @@ footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
   <div class="item"><small>تاریخ خروج</small><strong id="viewCheckout"></strong></div>
   <div class="item"><small>تعداد مسافران</small><strong id="viewGuests"></strong></div>
  </div>
- <div class="money">
+</details></section>
+<nav class="concierge-grid" aria-label="خدمات مهمان"><button type="button" class="concierge-tile" data-feature="food"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M20 3c-4 3-5 8-3 11h3m0-11v18"/></svg><span>کافه و رستوران</span></button><button type="button" class="concierge-tile" data-feature="breakfast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM17 9h2a3 3 0 0 1 0 6h-2M3 22h17M8 2v3m5-3v3"/></svg><span>صبحانه</span></button><button type="button" class="concierge-tile" data-feature="service"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>درخواست خدمات</span></button><button type="button" class="concierge-tile" data-feature="tour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0zM12 10h.01"/></svg><span>یزدگردی</span></button><button type="button" class="concierge-tile" data-feature="wifi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0M12 20h.01"/></svg><span>رمز وای‌فای</span></button><button type="button" class="concierge-tile" data-feature="billing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18v14H3zM3 6l15-4v4M16 11h5v5h-5z"/></svg><span>صورتحساب</span></button><button type="button" class="concierge-tile" data-feature="extend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v16H3zM7 2v6m10-6v6M3 10h18M12 12v6m-3-3h6"/></svg><span>تمدید اقامت</span></button><button type="button" class="concierge-tile" data-feature="loyalty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8C3 8 5 0 9 4l3 4c9 0 7-8 3-4z"/></svg><span>باشگاه مشتریان</span></button><button type="button" class="concierge-tile" data-feature="contact"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18v14H9l-6 4zM7 9h10M7 13h7"/></svg><span>ارتباط با پذیرش</span></button><button type="button" class="concierge-tile" data-feature="invoice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h14v19l-3-2-4 2-4-2-3 2zM8 8h8m-8 4h8m-8 4h5"/></svg><span>دریافت فاکتور</span></button><button type="button" class="concierge-tile" data-feature="review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2 3 7 7 1-5 5 1 7-6-4-6 4 1-7-5-5 7-1z"/></svg><span>ثبت رضایت</span></button><button type="button" class="concierge-tile" data-feature="checkout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22h16M7 22V3h10v19M13 12h.01"/></svg><span>تحویل اتاق</span></button></nav>
+<section class="card feature-panel" id="featurePanel" hidden tabindex="-1"><div class="feature-heading"><h2 id="featureTitle"></h2><button type="button" class="secondary" id="closeFeature">بستن</button></div><div id="featureContent"></div></section>
+<section class="card" id="billingPanel" hidden tabindex="-1"><div class="feature-heading"><h2>صورتحساب اقامت</h2><button type="button" class="secondary" id="closeBilling">بستن</button></div> <div class="money">
   <div class="money-row"><span>مبلغ کل اقامت</span><strong id="viewTotal"></strong></div>
   <div class="money-row"><span>بیعانه ثبت‌شده</span><strong id="viewDeposit"></strong></div>
   <div class="money-row"><span>مجموع پرداختی</span><strong id="viewPaid"></strong></div>
@@ -108,6 +117,8 @@ footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
   <div class="bank-notice">پس از واریز وجه، حتماً پرداخت خود را به شماره زیر اطلاع دهید:<br><a href="tel:09924950826">09924950826</a></div>
  </section>
  <div id="bankSettled" class="bank-settled" hidden>حساب این رزرو تسویه شده است. از همراهی شما سپاسگزاریم 🌿</div>
+</section>
+<div class="guest-signoff">با مهر، میزبان شما هستیم ❤️</div>
  <p class="muted">در صورت نیاز به اصلاح اطلاعات رزرو یا پیگیری پرداخت، با مدیریت بوم‌گردی مهران تماس بگیرید.</p>
  <div class="actions"><button class="secondary" type="button" onclick="resetPortal()">خروج از پنل مهمان</button><a class="button" href="/">صفحه اصلی</a></div>
 </section>
@@ -127,6 +138,11 @@ function renderGuest(data){
  $('viewTracking').textContent=r.tracking_code;
  $('viewPhone').textContent=data.guest.phone;
  $('viewRoom').textContent=r.room_name;
+ $('roomHeadline').textContent=r.room_name;
+ const nights=Math.max(0,Math.round((Date.parse(r.check_out)-Date.parse(r.check_in))/86400000));
+ $('stayNights').textContent=Number.isFinite(nights)?nights.toLocaleString('fa-IR')+' شب':'—';
+ $('stayPeople').textContent=(Number(r.adults||0)+Number(r.children||0)+Number(r.infants||0)).toLocaleString('fa-IR')+' نفر';
+ closeFeatures();
  $('viewCheckin').textContent=formatDate(r.check_in);
  $('viewCheckout').textContent=formatDate(r.check_out);
  $('viewGuests').textContent='بزرگسال '+r.adults+' · کودک '+r.children+' · نوزاد '+r.infants;
@@ -171,7 +187,32 @@ async function copyBankValue(value,button){
  }
  setTimeout(()=>button.textContent=original,1800);
 }
-function resetPortal(){ $('guestPanel').style.display='none';$('loginCard').style.display='block';$('guestLoginForm').reset(); }
+function closeFeatures(){ $('featurePanel').hidden=true;$('billingPanel').hidden=true;document.querySelectorAll('.concierge-tile').forEach(b=>b.setAttribute('aria-expanded','false'));$('featureContent').replaceChildren(); }
+const featureInfo={
+ food:['کافه و رستوران','برای اطلاع از منو و وضعیت سرو غذا و نوشیدنی با پذیرش هماهنگ کنید.'],
+ breakfast:['صبحانه','برای اطلاع از ساعت سرو، منو و سفارش صبحانه با پذیرش هماهنگ کنید.'],
+ service:['درخواست خدمات','برای درخواست حوله، نظافت، ملحفه یا سایر خدمات با پذیرش تماس بگیرید.'],
+ tour:['یزدگردی','برای پیشنهاد مسیر گردشگری و معرفی جاذبه‌های یزد از پذیرش راهنمایی بگیرید.'],
+ wifi:['رمز وای‌فای','نام شبکه و رمز وای‌فای را از پذیرش دریافت کنید.'],
+ extend:['تمدید اقامت','تمدید اقامت به ظرفیت آزاد اتاق و تأیید مدیریت بستگی دارد. برای هماهنگی تماس بگیرید.'],
+ loyalty:['باشگاه مشتریان','امتیازها و پیشنهادهای اختصاصی هنوز در پنل فعال نشده‌اند. درباره تخفیف سفر بعدی از پذیرش بپرسید.'],
+ contact:['ارتباط با پذیرش','برای هماهنگی اقامت و دریافت خدمات با ما تماس بگیرید.'],
+ invoice:['دریافت فاکتور','فاکتور رسمی اقامت توسط مدیریت صادر می‌شود. برای دریافت نسخه فاکتور با پذیرش تماس بگیرید.'],
+ review:['ثبت رضایت','برای ثبت نظر پس از اقامت، لینک اختصاصی نظرسنجی را از پذیرش دریافت کنید.'],
+ checkout:['تحویل اتاق','لطفاً ۱۵ دقیقه قبل از تخلیه اتاق با پذیرش تماس بگیرید.']
+};
+document.querySelectorAll('.concierge-tile').forEach(btn=>{btn.setAttribute('aria-expanded','false');btn.addEventListener('click',()=>{
+ closeFeatures();btn.setAttribute('aria-expanded','true');
+ if(btn.dataset.feature==='billing'){$('billingPanel').hidden=false;$('billingPanel').focus({preventScroll:true});$('billingPanel').scrollIntoView({behavior:'smooth',block:'start'});return;}
+ const info=featureInfo[btn.dataset.feature];if(!info)return;
+ $('featureTitle').textContent=info[0];const p=document.createElement('p');p.textContent=info[1];$('featureContent').append(p);
+ const links=document.createElement('div');links.className='contact-options';
+ const a=document.createElement('a');a.className='button';a.href='tel:09135132005';a.textContent='تماس با پذیرش';links.append(a);
+ const b=document.createElement('a');b.className='button secondary';b.href='/#contact-us';b.textContent='سایر راه‌های ارتباطی';links.append(b);$('featureContent').append(links);
+ $('featurePanel').hidden=false;$('featurePanel').focus({preventScroll:true});$('featurePanel').scrollIntoView({behavior:'smooth',block:'start'});
+});});
+$('closeFeature').onclick=closeFeatures;$('closeBilling').onclick=closeFeatures;
+function resetPortal(){ closeFeatures(); $('guestPanel').style.display='none';$('loginCard').style.display='block';$('guestLoginForm').reset(); }
 </script>
 </body>
 </html>
