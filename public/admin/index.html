@@ -142,7 +142,7 @@ form button{width:100%}
 .calendar-cell.checked_out{background:#e9e4ef;color:#59466f}
 .calendar-cell .cell-mark{font-weight:bold;font-size:12px}
 .calendar-note{font-size:11px;color:#806d5d;margin-top:10px;line-height:1.8}
-</style>
+.birth-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.multi-room{padding:12px;border:1px solid #d9c6af;border-radius:12px;margin:8px 0;background:#fffaf3}.room-fields[hidden],#orgField[hidden]{display:none!important}</style>
 <link rel="stylesheet" href="/assets/site-theme.css">
 </head>
 <body>
@@ -211,34 +211,22 @@ form button{width:100%}
 <div class="card">
 <h2>ثبت رزرو جدید</h2>
 <form id="bookingForm">
-<label>نام و نام خانوادگی مهمان</label>
+<label>نوع مشتری</label><select id="customerType"><option value="person">حقیقی</option><option value="company">حقوقی</option></select><div id="orgField" hidden><label>نام شرکت / اداره / سازمان</label><input id="organization" maxlength="160"></div><label>نام و نام خانوادگی سرپرست / نماینده</label>
 <input id="guestName" required placeholder="نام مهمان">
 <label>شماره موبایل</label>
 <input id="phone" required inputmode="tel" placeholder="09xxxxxxxxx">
-<label>منبع رزرو (اختیاری)</label>
+<label>کد ملی سرپرست / نماینده</label><input id="nationalId" inputmode="numeric" maxlength="10" required><label>تاریخ تولد شمسی</label><div class="birth-grid"><select id="birthDay" required></select><select id="birthMonth" required></select><select id="birthYear" required></select></div><label>منبع رزرو (اختیاری)</label>
 <input id="bookingSource" list="bookingSources" placeholder="مثلاً جاباما، اسنپ‌تریپ، تماس تلفنی...">
 <datalist id="bookingSources"><option value="جاباما"><option value="اسنپ‌تریپ"><option value="مستر بلیط"><option value="تماس تلفنی"><option value="واتساپ"><option value="اینستاگرام"><option value="مراجعه حضوری"><option value="سایت بوم‌گردی مهران"><option value="سایر"></datalist>
 <label>انتخاب اتاق</label>
-<select id="roomSelect" required></select>
+<div id="multiRoomList"></div><div id="multiPeople" class="muted">۰ نفر</div>
 <label>تاریخ ورود</label>
 <input id="checkinDisplay" type="text" placeholder="انتخاب تاریخ ورود" readonly onclick="openJalaliPicker('checkin')">
 <input id="checkin" type="hidden" required>
 <label>تاریخ خروج</label>
 <input id="checkoutDisplay" type="text" placeholder="انتخاب تاریخ خروج" readonly onclick="openJalaliPicker('checkout')">
 <input id="checkout" type="hidden" required>
-<label>تعداد بزرگسال</label>
-<input id="adults" type="number" min="1" value="1" required>
-<label>تعداد کودک</label>
-<input id="children" type="number" min="0" value="0">
-<label>تعداد نوزاد</label>
-<input id="infants" type="number" min="0" value="0">
-<label>مبلغ کل (تومان)</label>
-<input id="amount" type="text" inputmode="numeric" value="0">
-<label>مبلغ بیعانه (تومان)</label>
-<input id="deposit" type="text" inputmode="numeric" value="0">
-<label style="display:flex;align-items:center;gap:8px"><input id="autoPrice" type="checkbox" checked style="width:auto;margin:0"> محاسبه خودکار مبلغ براساس تعرفه اتاق</label>
-<div id="pricePreview" class="price-preview">با انتخاب اتاق و تاریخ، مبلغ اقامت بر اساس تعرفه‌ها محاسبه می‌شود.</div>
-<label>توضیحات</label>
+<div id="pricePreview" class="price-preview">مبلغ و بیعانه هر اتاق را جداگانه وارد کنید.</div><label>توضیحات</label>
 <textarea id="notes" rows="3" placeholder="توضیحات رزرو..."></textarea>
 <button type="submit">ثبت رزرو</button>
 <div id="bookingMessage"></div>
@@ -420,18 +408,15 @@ function formatMoney(input) {
     : '';
 }
 
-document.getElementById('amount')
-  .addEventListener('input', e => formatMoney(e.target));
 
-document.getElementById('deposit')
-  .addEventListener('input', e => formatMoney(e.target));
 
 document.getElementById('editAmount').addEventListener('input', e => formatMoney(e.target));
 document.getElementById('editDeposit').addEventListener('input', e => formatMoney(e.target));
 document.getElementById('pricePerNight').addEventListener('input', e => formatMoney(e.target));
-document.getElementById('amount').addEventListener('input',()=>{document.getElementById('autoPrice').checked=false;});
-document.getElementById('autoPrice').addEventListener('change',updateBookingPricePreview);
-document.getElementById('roomSelect').addEventListener('change',updateBookingPricePreview);
+document.getElementById('birthYear').innerHTML='<option value="">سال</option>'+Array.from({length:121},(_,i)=>'<option>'+(1400-i)+'</option>').join('');
+document.getElementById('birthMonth').innerHTML='<option value="">ماه</option>'+Array.from({length:12},(_,i)=>'<option>'+(i+1)+'</option>').join('');
+document.getElementById('birthDay').innerHTML='<option value="">روز</option>'+Array.from({length:31},(_,i)=>'<option>'+(i+1)+'</option>').join('');
+document.getElementById('customerType').addEventListener('change',()=>{const company=document.getElementById('customerType').value==='company';document.getElementById('orgField').hidden=!company;document.getElementById('organization').required=company;});
 
 async function login(){
  const {error}=await db.auth.signInWithPassword({
@@ -470,7 +455,7 @@ async function loadRooms(){
  const {data,error}=await db.from('rooms').select('*').eq('is_active',true).order('display_order');
  if(error){alert('خطا در دریافت اتاق‌ها: '+error.message);return;}
  rooms=data||[];
- document.getElementById('roomSelect').innerHTML='<option value="">انتخاب اتاق</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)} - ظرفیت ${r.max_capacity} نفر</option>`).join('');
+ renderMultiRooms();
  document.getElementById('editRoom').innerHTML=rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
   document.getElementById('priceRoom').innerHTML='<option value="">همه اتاق‌ها</option>'+rooms.map(r=>'<option value="'+r.id+'">'+escapeHtml(r.name)+'</option>').join('');
  renderRoomStatus();
@@ -710,6 +695,7 @@ async function loadReservations(){
 
  cachedReservations=data||[];
  cachedReservations.forEach(r=>{r.reservation_payments=[];});
+ if(cachedReservations.length){const {data:identities}=await db.from('booking_identity').select('reservation_id,customer_type,organization,contact_name').in('reservation_id',cachedReservations.map(r=>r.id));const map=new Map((identities||[]).map(x=>[x.reservation_id,x]));cachedReservations.forEach(r=>{r.identity=map.get(r.id);});}
 
  // Fetch payment history separately using reservation_id; the FK embed is not needed.
  const reservationIds=cachedReservations.map(r=>r.id).filter(Boolean);
@@ -797,7 +783,7 @@ function reservationCard(r,actions=true){
   return '<div class="muted">واریزی تأییدشده: '+Number(p.amount||0).toLocaleString('fa-IR')+' تومان · '+escapeHtml(when)+'</div>';
  }).join('');
  return `<div class="reservation">
-  <b>${escapeHtml(r.guests?.full_name||'مهمان')}</b>
+  <b>${escapeHtml(r.identity?.organization||r.identity?.contact_name||r.guests?.full_name||'مهمان')}</b>
   <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
   <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
   <div class="muted">منبع رزرو: ${escapeHtml(r.booking_source||'ثبت نشده')}</div>
@@ -854,7 +840,7 @@ function printInvoice(id){
  const total=Number(r.total_amount||0),paid=Number(r.paid_amount||0),deposit=Number(r.deposit_amount||0),balance=Math.max(0,total-paid);
  const status={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'}[r.status]||r.status;
  const money=n=>Number(n).toLocaleString('fa-IR')+' تومان';
- const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>فاکتور بوم‌گردی مهران</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#35271e;margin:0;padding:28px;line-height:2;text-align:center}.sheet{max-width:760px;margin:auto;border:1px solid #ddd1c3;padding:28px;border-radius:16px;text-align:center}.head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;border-bottom:2px solid #80502e;padding-bottom:16px}.brand{font-size:24px;color:#56351f;font-weight:bold}.muted{color:#806d5d;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}.item{background:#f7f3ec;padding:12px;border-radius:9px;text-align:center}.label{font-size:11px;color:#806d5d}.value{font-weight:bold}.money{width:100%;border-collapse:collapse;margin-top:20px}.money td{padding:12px;border-bottom:1px solid #eee;text-align:center}.money tr:last-child{font-weight:bold;color:#56351f;font-size:18px}.foot{margin-top:30px;text-align:center;color:#806d5d;font-size:12px}@media print{body{padding:0}.sheet{border:0;border-radius:0}}</style></head><body><div class="sheet"><div class="head"><div><div class="brand">بوم‌گردی مهران</div><div class="muted">فاکتور / رسید اقامت</div></div><div class="muted">تاریخ صدور: '+escapeHtml(formatJalaliDate(todayISO()))+'<br>وضعیت: '+escapeHtml(status)+'</div></div><div class="grid"><div class="item"><div class="label">نام مهمان</div><div class="value">'+escapeHtml(r.guests?.full_name||'—')+'</div></div><div class="item"><div class="label">شماره تماس</div><div class="value">'+escapeHtml(r.guests?.phone||'—')+'</div></div><div class="item"><div class="label">اتاق</div><div class="value">'+escapeHtml(r.rooms?.name||'—')+'</div></div><div class="item"><div class="label">منبع رزرو</div><div class="value">'+escapeHtml(r.booking_source||'ثبت نشده')+'</div></div><div class="item"><div class="label">تاریخ ورود</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_in))+'</div></div><div class="item"><div class="label">تاریخ خروج</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_out))+'</div></div></div><table class="money"><tr><td>مبلغ کل اقامت</td><td>'+money(total)+'</td></tr><tr><td>بیعانه ثبت‌شده</td><td>'+money(deposit)+'</td></tr><tr><td>مجموع پرداختی</td><td>'+money(paid)+'</td></tr><tr><td>مانده قابل پرداخت</td><td>'+money(balance)+'</td></tr></table><div class="foot">از انتخاب بوم‌گردی مهران سپاسگزاریم 🌿<br>این رسید بر اساس اطلاعات ثبت‌شده در سامانه صادر شده است.</div></div><script>window.onload=()=>window.print()<\/script></body></html>';
+ const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>فاکتور بوم‌گردی مهران</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#35271e;margin:0;padding:28px;line-height:2;text-align:center}.sheet{max-width:760px;margin:auto;border:1px solid #ddd1c3;padding:28px;border-radius:16px;text-align:center}.head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;border-bottom:2px solid #80502e;padding-bottom:16px}.brand{font-size:24px;color:#56351f;font-weight:bold}.muted{color:#806d5d;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}.item{background:#f7f3ec;padding:12px;border-radius:9px;text-align:center}.label{font-size:11px;color:#806d5d}.value{font-weight:bold}.money{width:100%;border-collapse:collapse;margin-top:20px}.money td{padding:12px;border-bottom:1px solid #eee;text-align:center}.money tr:last-child{font-weight:bold;color:#56351f;font-size:18px}.foot{margin-top:30px;text-align:center;color:#806d5d;font-size:12px}@media print{body{padding:0}.sheet{border:0;border-radius:0}}</style></head><body><div class="sheet"><div class="head"><div><div class="brand">بوم‌گردی مهران</div><div class="muted">فاکتور / رسید اقامت</div></div><div class="muted">تاریخ صدور: '+escapeHtml(formatJalaliDate(todayISO()))+'<br>وضعیت: '+escapeHtml(status)+'</div></div><div class="grid"><div class="item"><div class="label">نام مهمان</div><div class="value">'+escapeHtml(r.identity?.organization||r.identity?.contact_name||r.guests?.full_name||'—')+'</div></div><div class="item"><div class="label">شماره تماس</div><div class="value">'+escapeHtml(r.guests?.phone||'—')+'</div></div><div class="item"><div class="label">اتاق</div><div class="value">'+escapeHtml(r.rooms?.name||'—')+'</div></div><div class="item"><div class="label">منبع رزرو</div><div class="value">'+escapeHtml(r.booking_source||'ثبت نشده')+'</div></div><div class="item"><div class="label">تاریخ ورود</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_in))+'</div></div><div class="item"><div class="label">تاریخ خروج</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_out))+'</div></div></div><table class="money"><tr><td>مبلغ کل اقامت</td><td>'+money(total)+'</td></tr><tr><td>بیعانه ثبت‌شده</td><td>'+money(deposit)+'</td></tr><tr><td>مجموع پرداختی</td><td>'+money(paid)+'</td></tr><tr><td>مانده قابل پرداخت</td><td>'+money(balance)+'</td></tr></table><div style="margin:18px auto;break-inside:avoid"><img src="'+location.origin+'/assets/mehran-stamp.png" alt="مهر بوم‌گردی مهران" width="125" height="125" style="object-fit:contain"></div><div class="foot">از انتخاب بوم‌گردی مهران سپاسگزاریم 🌿<br>این رسید بر اساس اطلاعات ثبت‌شده در سامانه صادر شده است.</div></div><script>window.onload=()=>window.print()<\/script></body></html>';
  w.document.open();w.document.write(html);w.document.close();
 }
 async function copyReviewLink(id){
@@ -947,15 +933,16 @@ function calculateStayPrice(roomId,checkIn,checkOut){
  }
  return nights&&nights<90&&!missing.length?{total,nights}:{total:null,nights,missing};
 }
+function renderMultiRooms(){
+ const host=document.getElementById('multiRoomList');
+ host.innerHTML=rooms.map(r=>'<div class="multi-room" data-room="'+escapeHtml(r.id)+'"><label><input type="checkbox" class="room-check" style="width:auto"> '+escapeHtml(r.name)+' · ظرفیت '+Number(r.max_capacity||r.capacity)+'</label><div class="room-fields" hidden><div class="birth-grid"><label>بزرگسال<input class="ra" type="number" min="1" max="20" value="1"></label><label>کودک<input class="rc" type="number" min="0" max="20" value="0"></label><label>نوزاد<input class="ri" type="number" min="0" max="20" value="0"></label></div><label>مبلغ کل این اتاق (تومان)<input class="rt" inputmode="numeric" value="0"></label><label>بیعانه این اتاق (تومان)<input class="rd" inputmode="numeric" value="0"></label><label><input class="auto" type="checkbox" checked style="width:auto"> محاسبه خودکار تعرفه</label><div class="quote muted"></div></div></div>').join('');
+ host.querySelectorAll('.multi-room').forEach(card=>{const cb=card.querySelector('.room-check'),fields=card.querySelector('.room-fields');fields.querySelectorAll('input').forEach(x=>x.disabled=true);cb.onchange=()=>{fields.hidden=!cb.checked;fields.querySelectorAll('input').forEach(x=>x.disabled=!cb.checked);updateBookingPricePreview();};card.querySelector('.rt').oninput=e=>{formatMoney(e.target);card.querySelector('.auto').checked=false;updateMultiTotals();};card.querySelector('.rd').oninput=e=>formatMoney(e.target);card.querySelector('.auto').onchange=updateBookingPricePreview;fields.addEventListener('input',updateMultiTotals);});updateMultiTotals();
+}
+function getMultiRows(){return [...document.querySelectorAll('.multi-room')].filter(x=>x.querySelector('.room-check').checked).map(x=>({room_id:x.dataset.room,adults:Number(x.querySelector('.ra').value),children:Number(x.querySelector('.rc').value),infants:Number(x.querySelector('.ri').value),total_amount:Number(x.querySelector('.rt').value.replace(/,/g,'')),deposit_amount:Number(x.querySelector('.rd').value.replace(/,/g,''))}));}
+function updateMultiTotals(){const rows=getMultiRows();document.getElementById('multiPeople').textContent=rows.length.toLocaleString('fa-IR')+' اتاق · '+rows.reduce((n,r)=>n+r.adults+r.children+r.infants,0).toLocaleString('fa-IR')+' نفر';document.getElementById('pricePreview').textContent='جمع مبلغ: '+rows.reduce((n,r)=>n+r.total_amount,0).toLocaleString('fa-IR')+' تومان';}
 function updateBookingPricePreview(){
- const auto=document.getElementById('autoPrice');if(!auto?.checked)return;
- const roomId=document.getElementById('roomSelect').value;
- const result=calculateStayPrice(roomId,document.getElementById('checkin').value,document.getElementById('checkout').value);
- const preview=document.getElementById('pricePreview');
- if(!result){preview.textContent='با انتخاب اتاق و تاریخ، مبلغ اقامت بر اساس تعرفه‌ها محاسبه می‌شود.';return;}
- if(result.total===null){preview.textContent='برای بعضی شب‌ها تعرفه ثبت نشده است ('+result.missing.join('، ')+'). مبلغ را دستی وارد کنید یا تعرفه‌ها را کامل کنید.';return;}
- document.getElementById('amount').value=result.total.toLocaleString('en-US');
- preview.textContent=result.nights+' شب × تعرفه‌های ثبت‌شده = '+result.total.toLocaleString('fa-IR')+' تومان';
+ const ci=document.getElementById('checkin').value,co=document.getElementById('checkout').value;
+ document.querySelectorAll('.multi-room').forEach(card=>{if(!card.querySelector('.room-check').checked)return;const busy=cachedReservations.some(r=>r.room_id===card.dataset.room&&r.status!=='cancelled'&&r.check_in<co&&r.check_out>ci);const result=calculateStayPrice(card.dataset.room,ci,co);const quote=card.querySelector('.quote');quote.textContent=busy?'این اتاق در این تاریخ رزرو است.':(!result||result.total===null?'تعرفه کامل موجود نیست؛ مبلغ را دستی وارد کنید.':'تعرفه '+result.total.toLocaleString('fa-IR')+' تومان');if(card.querySelector('.auto').checked)card.querySelector('.rt').value=result&&result.total!==null?result.total.toLocaleString('en-US'):'0';});updateMultiTotals();
 }
 async function fetchAllRows(table,select='*'){
  const rows=[],pageSize=1000;
@@ -1175,81 +1162,21 @@ async function addPayment(id){
 }
 
 document.getElementById('bookingForm').addEventListener('submit',async e=>{
- e.preventDefault();
- const msg=document.getElementById('bookingMessage');
+ e.preventDefault();const msg=document.getElementById('bookingMessage'),button=e.target.querySelector('button[type=submit]');button.disabled=true;
+ try{
+ const val=id=>document.getElementById(id).value.trim();
+ const digits=v=>v.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+ const rows=getMultiRows();if(!rows.length)throw Error('حداقل یک اتاق انتخاب کنید.');
+ const ci=val('checkin'),co=val('checkout');if(!ci||!co||co<=ci)throw Error('تاریخ اقامت معتبر نیست.');
+ const birth=jalaliToGregorian(Number(val('birthYear')),Number(val('birthMonth')),Number(val('birthDay')));if(!birth)throw Error('تاریخ تولد معتبر نیست.');
+ const birthISO=birth.getFullYear()+'-'+String(birth.getMonth()+1).padStart(2,'0')+'-'+String(birth.getDate()).padStart(2,'0');
+ const phone=digits(val('phone')),national=digits(val('nationalId'));if(!/^09[0-9]{9}$/.test(phone)||!/^\d{10}$/.test(national))throw Error('موبایل یا کد ملی معتبر نیست.');
+ for(const row of rows){const rm=rooms.find(r=>r.id===row.room_id);if(!rm||row.adults<1||row.children<0||row.infants<0||row.adults+row.children>Number(rm.max_capacity||rm.capacity)||row.deposit_amount>row.total_amount)throw Error('ظرفیت یا مبلغ یکی از اتاق‌ها معتبر نیست.');}
  msg.textContent='در حال ثبت رزرو...';
-
- const room=rooms.find(r=>r.id===document.getElementById('roomSelect').value);
- if(!room){msg.textContent='اتاق را انتخاب کنید.';return;}
-
- const adults=Number(document.getElementById('adults').value);
- const children=Number(document.getElementById('children').value);
- const infants=Number(document.getElementById('infants').value);
- const totalPeople=adults+children;
-
- if(totalPeople>room.max_capacity){
- msg.textContent='تعداد مهمانان بیشتر از ظرفیت اتاق است.';
- return;
- }
-
- const checkIn=document.getElementById('checkin').value;
- const checkOut=document.getElementById('checkout').value;
-
- if(checkOut<=checkIn){
- msg.textContent='تاریخ خروج باید بعد از تاریخ ورود باشد.';
- return;
- }
-
- const phone=document.getElementById('phone').value.trim();
-
- let {data:guest,error}=await db.from('guests')
- .select('id').eq('phone',phone).limit(1).maybeSingle();
-
- if(error){msg.textContent=error.message;return;}
-
- if(!guest){
- const result=await db.from('guests').insert({
- full_name:document.getElementById('guestName').value.trim(),
- phone:phone
- }).select('id').single();
-
- if(result.error){msg.textContent=result.error.message;return;}
- guest=result.data;
- }
-
- const amount=Number(document.getElementById('amount').value.replace(/,/g,'')) || 0;
-const deposit=Number(document.getElementById('deposit').value.replace(/,/g,'')) || 0;
- if(deposit>amount){
- msg.textContent='بیعانه نمی‌تواند از مبلغ کل بیشتر باشد.';
- return;
- }
-
- const {error:saveError}=await db.from('reservations').insert({
- guest_id:guest.id,
- room_id:room.id,
- check_in:checkIn,
- check_out:checkOut,
- adults,children,infants,
- total_amount:amount,
- deposit_amount:deposit,
- paid_amount:deposit,
- status:'pending',
- booking_source:document.getElementById('bookingSource').value.trim()||null,
- notes:document.getElementById('notes').value
- });
-
- if(saveError){
- msg.textContent='خطا: '+saveError.message;
- return;
- }
-
- msg.textContent='رزرو با موفقیت ثبت شد.';
- e.target.reset();
- document.getElementById('adults').value=1;
- document.getElementById('amount').value=0;
- document.getElementById('deposit').value=0;
- document.getElementById('bookingSource').value='';
- await loadReservations();
+ const {data,error}=await db.rpc('create_multi_room_booking',{p_name:val('guestName'),p_phone:phone,p_type:val('customerType'),p_org:val('organization'),p_national_id:national,p_birth:birthISO,p_in:ci,p_out:co,p_source:val('bookingSource')||null,p_notes:val('notes'),p_rooms:rows});
+ if(error)throw Error(error.code==='23P01'?'یکی از اتاق‌ها قبلاً رزرو شده است؛ هیچ رزروی ثبت نشد.':error.code==='PGRST202'?'ابتدا فایل SQL جدید را در Supabase اجرا کنید.':'ثبت رزرو انجام نشد؛ مشخصات و ظرفیت را بررسی کنید.');
+ e.target.reset();document.getElementById('orgField').hidden=true;document.getElementById('organization').required=false;renderMultiRooms();await loadReservations();msg.textContent='رزرو ثبت شد: '+(data||[]).map(r=>r.room_name+' '+r.tracking_code).join(' | ');
+ }catch(error){msg.textContent=error.message;}finally{button.disabled=false;}
 });
 
 async function cancelReservation(id){

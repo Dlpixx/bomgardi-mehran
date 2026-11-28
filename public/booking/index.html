@@ -35,7 +35,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 #success{display:none;text-align:center}
 .code{font-size:26px;letter-spacing:3px;color:var(--copper);font-weight:bold;direction:ltr}
 @media(max-width:540px){.grid,.rooms{grid-template-columns:1fr}.card{padding:16px}header{padding:19px 18px}}
-</style>
+.room-counts:not([hidden]){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.room-counts input{width:100%;margin:0}.room-counts[hidden],[hidden]{display:none!important}.code{font-size:18px;letter-spacing:0;overflow-wrap:anywhere}</style>
 <link rel="stylesheet" href="/assets/site-theme.css">
 </head>
 <body>
@@ -59,14 +59,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 <div class="muted">تاریخ‌ها شمسی هستند؛ روز خروج، روز تخلیه اتاق است.</div>
 </section>
 
-<section class="card">
-<h2>۲. تعداد مسافران</h2>
-<div class="grid">
- <div class="field"><label for="adults">بزرگسال</label><input id="adults" type="number" min="1" max="20" value="1" required></div>
- <div class="field"><label for="children">کودک</label><input id="children" type="number" min="0" max="20" value="0"></div>
- <div class="field"><label for="infants">نوزاد</label><input id="infants" type="number" min="0" max="20" value="0"></div>
-</div>
-</section>
+<section class="card"><h2>۲. تعداد مسافران</h2><p class="muted">اتاق‌ها را انتخاب و تعداد نفرات هر اتاق را مشخص کنید.</p><div id="peopleTotal">۰ نفر</div></section>
 
 <section class="card">
 <h2>۳. انتخاب اتاق</h2>
@@ -75,9 +68,9 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 
 <section class="card">
 <h2>۴. مشخصات سرپرست رزرو</h2>
-<div class="field"><label for="fullName">نام و نام خانوادگی</label><input id="fullName" maxlength="120" autocomplete="name" required placeholder="نام کامل مسافر"></div>
+<div class="field"><label>نوع مشتری</label><select id="customerType"><option value="person">حقیقی</option><option value="company">حقوقی</option></select></div><div class="field" id="orgField" hidden><label>نام شرکت / اداره / سازمان</label><input id="organization" maxlength="160"></div><div class="field"><label for="fullName">نام و نام خانوادگی سرپرست / نماینده</label><input id="fullName" maxlength="120" autocomplete="name" required placeholder="نام کامل مسافر"></div>
 <div class="field"><label for="phone">شماره موبایل</label><input id="phone" inputmode="tel" autocomplete="tel" required placeholder="09123456789"></div>
-<div class="field"><label for="notes">توضیحات (اختیاری)</label><textarea id="notes" rows="3" maxlength="1000" placeholder="درخواست یا توضیح خاص..."></textarea></div>
+<div class="field"><label>کد ملی سرپرست / نماینده</label><input id="nationalId" inputmode="numeric" maxlength="10" required></div><div class="field"><label>تاریخ تولد شمسی</label><div class="date-row"><select id="birthDay" required></select><select id="birthMonth" required></select><select id="birthYear" required></select></div></div><div class="field"><label for="notes">توضیحات (اختیاری)</label><textarea id="notes" rows="3" maxlength="1000" placeholder="درخواست یا توضیح خاص..."></textarea></div>
 <div class="notice">با ثبت درخواست، اطلاعات شما برای بررسی در اختیار مدیریت بوم‌گردی مهران قرار می‌گیرد. در صورت تعریف تعرفه برای تمام شب‌های اقامت، مبلغ تقریبی کنار اتاق نمایش داده می‌شود؛ ثبت فرم به معنی تأیید قطعی یا پرداخت وجه نیست.</div>
 <div class="field" style="margin-top:12px"><label><input id="consent" type="checkbox" required style="width:auto"> با ثبت و ارسال اطلاعات برای پیگیری درخواست موافقم.</label></div>
 <div class="actions"><button id="submitBtn" type="submit">ثبت درخواست رزرو</button><a class="button secondary" href="/">بازگشت</a></div>
@@ -88,7 +81,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 <section id="success" class="card">
 <h1>درخواست شما ثبت شد 🌿</h1>
 <p>درخواست رزرو با موفقیت دریافت شد و در انتظار بررسی مدیریت است.</p>
-<div class="muted">کد پیگیری رزرو</div><div id="trackingCode" class="code"></div>
+<div class="muted">کد پیگیری هر اتاق</div><div id="trackingCode" class="code"></div>
 <p class="muted">کد پیگیری را نگه دارید. پس از تأیید رزرو توسط مدیریت، با شماره موبایل ثبت‌شده و همین کد پیگیری می‌توانید وارد پنل مهمان شوید.</p>
 <div class="actions" style="justify-content:center;margin-top:14px"><a class="button" href="/guest/">ورود مهمان</a><a class="button secondary" href="/">بازگشت به سایت</a></div>
 </section>
@@ -97,7 +90,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 <script>
 const months=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const $=id=>document.getElementById(id);
-let rooms=[], selectedRoom=null, loadingRooms=false;
+let rooms=[], loadingRooms=false, roomRequest=0;
 function jalaliParts(date){
  const parts=new Intl.DateTimeFormat('en-US-u-ca-persian',{timeZone:'Asia/Tehran',year:'numeric',month:'numeric',day:'numeric'}).formatToParts(date);
  const get=t=>Number(parts.find(p=>p.type===t)?.value||0);
@@ -123,22 +116,24 @@ function fillDate(prefix,initial){
 }
 function getDate(prefix){return jalaliToISO(Number($(prefix+'Year').value),Number($(prefix+'Month').value),Number($(prefix+'Day').value));}
 function setDate(prefix,p){$(prefix+'Year').value=p.year;$(prefix+'Month').value=p.month;$(prefix+'Day').value=p.day;}
-function datesChanged(){selectedRoom=null;loadRooms();}
+function datesChanged(){loadRooms();}
+function selectedRows(){return [...document.querySelectorAll(".room input[type=checkbox]:checked")].map(el=>{const card=el.closest(".room");return {room_id:el.value,adults:Number(card.querySelector(".ra").value),children:Number(card.querySelector(".rc").value),infants:Number(card.querySelector(".ri").value)};});}
+function updatePeople(){const rows=selectedRows();$("peopleTotal").textContent=rows.length.toLocaleString("fa-IR")+" اتاق · "+rows.reduce((n,r)=>n+r.adults+r.children+r.infants,0).toLocaleString("fa-IR")+" نفر";}
 async function loadRooms(){
- if(loadingRooms)return;
+ const requestId=++roomRequest;
  const checkIn=getDate('in'),checkOut=getDate('out');
  if(!checkIn||!checkOut||checkOut<=checkIn){$('roomList').innerHTML='<div class="muted">لطفاً تاریخ معتبر انتخاب کنید؛ خروج باید بعد از ورود باشد.</div>';return;}
  loadingRooms=true;$('roomList').textContent='در حال بررسی ظرفیت اتاق‌ها...';
  try{
   const r=await fetch('/api/rooms?check_in='+encodeURIComponent(checkIn)+'&check_out='+encodeURIComponent(checkOut),{cache:'no-store'});
   const data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'خطا در دریافت اتاق‌ها');
+  if(requestId!==roomRequest)return;
   rooms=data.rooms||[];
-  const people=Number($('adults').value||1)+Number($('children').value||0);
-  const available=rooms.filter(room=>room.available && (!room.max_capacity&&!room.capacity || people<=Number(room.max_capacity||room.capacity)));
-  if(!available.length){$('roomList').innerHTML='<div class="muted">برای این تاریخ و تعداد نفرات، اتاق آزادی پیدا نشد. تاریخ یا تعداد نفرات را تغییر دهید.</div>';return;}
-  $('roomList').innerHTML=available.map(room=>'<label class="room '+(selectedRoom===room.id?'selected':'')+'"><div><input type="radio" name="room" value="'+room.id+'" '+(selectedRoom===room.id?'checked':'')+'><strong>'+escapeHtml(room.name)+'</strong></div><p>'+escapeHtml(room.description||'')+'</p><p>ظرفیت: '+(room.capacity??'—')+' نفر'+(room.max_capacity?' · حداکثر '+room.max_capacity+' نفر':'')+'</p><span class="availability">● قابل رزرو در تاریخ انتخابی</span>'+(room.price_per_stay!==null&&room.price_per_stay!==undefined?'<p class="price">مبلغ تقریبی '+Number(room.price_per_stay).toLocaleString('fa-IR')+' تومان برای '+Number(room.price_nights||0).toLocaleString('fa-IR')+' شب</p>':'<p class="muted">مبلغ پس از بررسی مدیریت اعلام می‌شود.</p>')+'</label>').join('');
-  document.querySelectorAll('input[name="room"]').forEach(el=>el.addEventListener('change',()=>{selectedRoom=el.value;document.querySelectorAll('.room').forEach(x=>x.classList.remove('selected'));el.closest('.room').classList.add('selected');}));
- }catch(e){$('roomList').innerHTML='<div class="muted">'+escapeHtml(e.message)+'</div>';}
+  const available=rooms.filter(room=>room.available);
+  if(!available.length){$('roomList').textContent='اتاق آزادی در این بازه وجود ندارد.';updatePeople();return;}
+  $('roomList').innerHTML=available.map(room=>'<div class="room"><label><input type="checkbox" value="'+escapeHtml(room.id)+'"><strong>'+escapeHtml(room.name)+'</strong></label><p>حداکثر ظرفیت: '+Number(room.max_capacity||room.capacity)+' نفر</p><div class="room-counts" hidden><label>بزرگسال<input class="ra" type="number" min="1" max="20" value="1"></label><label>کودک<input class="rc" type="number" min="0" max="20" value="0"></label><label>نوزاد<input class="ri" type="number" min="0" max="20" value="0"></label></div><p class="price">'+(room.price_per_stay==null?'مبلغ پس از بررسی مدیریت':Number(room.price_per_stay).toLocaleString('fa-IR')+' تومان')+'</p></div>').join('');
+  document.querySelectorAll('.room').forEach(card=>{const cb=card.querySelector('input[type=checkbox]');const counts=card.querySelector('.room-counts');counts.querySelectorAll('input').forEach(x=>x.disabled=true);cb.addEventListener('change',()=>{counts.hidden=!cb.checked;counts.querySelectorAll('input').forEach(x=>x.disabled=!cb.checked);card.classList.toggle('selected',cb.checked);updatePeople();});counts.addEventListener('input',updatePeople);});updatePeople();
+ }catch(e){if(requestId!==roomRequest)return;$('roomList').innerHTML='<div class="muted">'+escapeHtml(e.message)+'</div>';}
  finally{loadingRooms=false;}
 }
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -151,18 +146,24 @@ fillDate('in',today);
 const tomorrowDate=new Date(tehranTodayISO+'T12:00:00Z');tomorrowDate.setUTCDate(tomorrowDate.getUTCDate()+1);
 const tomorrow=isoToJalali(tomorrowDate.toISOString().slice(0,10));
 fillDate('out',tomorrow);
-['inDay','inMonth','inYear','outDay','outMonth','outYear','adults','children'].forEach(id=>$(id).addEventListener('change',datesChanged));
+['inDay','inMonth','inYear','outDay','outMonth','outYear'].forEach(id=>$(id).addEventListener('change',datesChanged));
+$('birthYear').innerHTML='<option value="">سال</option>'+Array.from({length:121},(_,i)=>'<option>'+ (1400-i)+'</option>').join('');
+$('birthMonth').innerHTML='<option value="">ماه</option>'+months.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+$('birthDay').innerHTML='<option value="">روز</option>'+Array.from({length:31},(_,i)=>'<option>'+(i+1)+'</option>').join('');
+$('customerType').addEventListener('change',()=>{const company=$('customerType').value==='company';$('orgField').hidden=!company;$('organization').required=company;});
 $('bookingForm').addEventListener('submit',async e=>{
  e.preventDefault();$('submitBtn').disabled=true;$('submitBtn').textContent='در حال ثبت درخواست...';
  try{
   const checkIn=getDate('in'),checkOut=getDate('out');
   if(!checkIn||!checkOut||checkOut<=checkIn)throw new Error('تاریخ ورود و خروج معتبر نیست.');
-  if(!selectedRoom)throw new Error('لطفاً یکی از اتاق‌های آزاد را انتخاب کنید.');
-  const body={full_name:$('fullName').value.trim(),phone:normalizeDigits($('phone').value).trim(),room_id:selectedRoom,check_in:checkIn,check_out:checkOut,adults:Number($('adults').value),children:Number($('children').value),infants:Number($('infants').value),notes:$('notes').value.trim()};
+  const rows=selectedRows();if(!rows.length)throw new Error('حداقل یک اتاق انتخاب کنید.');
+  for(const row of rows){const room=rooms.find(r=>r.id===row.room_id);if(!room||row.adults+row.children>Number(room.max_capacity||room.capacity))throw new Error('ظرفیت اتاق رعایت نشده است.');}
+  const birth=getDate('birth');if(!birth)throw new Error('تاریخ تولد معتبر نیست.');
+  const body={full_name:$('fullName').value.trim(),phone:normalizeDigits($('phone').value).trim(),customer_type:$('customerType').value,organization:$('organization').value.trim(),national_id:normalizeDigits($('nationalId').value).trim(),birth_date:birth,rooms:rows,check_in:checkIn,check_out:checkOut,notes:$('notes').value.trim()};
   if(!$('consent').checked)throw new Error('برای ارسال درخواست، موافقت خود را ثبت کنید.');
   const r=await fetch('/api/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'ثبت درخواست انجام نشد.');
-  $('bookingForm').style.display='none';$('success').style.display='block';$('trackingCode').textContent=data.tracking_code||'ثبت شد';
+  $('bookingForm').style.display='none';$('success').style.display='block';$('trackingCode').textContent=(data.bookings||[]).map(x=>x.room_name+' : '+x.tracking_code).join(' | ')||data.tracking_code||'ثبت شد';
  }catch(err){showMessage(err.message);}
  finally{$('submitBtn').disabled=false;$('submitBtn').textContent='ثبت درخواست رزرو';}
 });

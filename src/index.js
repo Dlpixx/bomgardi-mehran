@@ -357,116 +357,25 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/bookings" && request.method === "POST") {
     let body;
     try { body = await request.json(); } catch { return json({ok:false,error:"اطلاعات ارسالی معتبر نیست."},400); }
-    const fullName = String(body.full_name || "").trim();
-    const phone = normalizePhone(body.phone);
-    const roomId = String(body.room_id || "");
-    const checkIn = body.check_in;
-    const checkOut = body.check_out;
-    const adults = Number(body.adults);
-    const children = Number(body.children || 0);
-    const infants = Number(body.infants || 0);
-    const notes = String(body.notes || "").trim().slice(0,1000);
-    if (!fullName || fullName.length > 120) return json({ok:false,error:"نام و نام خانوادگی را کامل وارد کنید."},400);
-    if (!/^09\d{9}$/.test(phone)) return json({ok:false,error:"شماره موبایل باید به شکل ۰۹xxxxxxxxx باشد."},400);
-    if (!roomId || !validISODate(checkIn) || !validISODate(checkOut) || checkOut <= checkIn) {
-      return json({ok:false,error:"اتاق یا تاریخ‌های انتخاب‌شده معتبر نیستند."},400);
-    }
-    if (checkIn < tehranToday()) return json({ok:false,error:"تاریخ ورود نمی‌تواند در گذشته باشد."},400);
-    if (!Number.isInteger(adults) || adults < 1 || !Number.isInteger(children) || children < 0 ||
-        !Number.isInteger(infants) || infants < 0 || adults+children+infants > 20) {
-      return json({ok:false,error:"تعداد مسافران معتبر نیست."},400);
-    }
+    const fullName=String(body.full_name||"").trim(), phone=normalizePhone(body.phone);
+    const type=String(body.customer_type||""), org=String(body.organization||"").trim();
+    const nationalId=String(body.national_id||"").trim(), birth=body.birth_date;
+    const checkIn=body.check_in, checkOut=body.check_out;
+    const selections=body.rooms;
+    if(!fullName||fullName.length>120||!/^09\d{9}$/.test(phone)||!["person","company"].includes(type)||(type==="company"&&(!org||org.length>160))||!/^\d{10}$/.test(nationalId)||!validISODate(birth)||birth>="2022-03-21") return json({ok:false,error:"مشخصات هویتی سرپرست رزرو معتبر نیست."},400);
+    if(!validISODate(checkIn)||!validISODate(checkOut)||checkOut<=checkIn||checkIn<tehranToday()) return json({ok:false,error:"تاریخ اقامت معتبر نیست."},400);
+    if(!Array.isArray(selections)||!selections.length||selections.length>9||new Set(selections.map(x=>x?.room_id)).size!==selections.length) return json({ok:false,error:"اتاق‌ها را انتخاب کنید."},400);
+    for(const x of selections) if(!x||!/^[0-9a-f-]{36}$/i.test(String(x.room_id))||![x.adults,x.children,x.infants].every(Number.isInteger)||x.adults<1||x.children<0||x.infants<0||x.adults+x.children+x.infants>20) return json({ok:false,error:"تعداد مسافران هر اتاق معتبر نیست."},400);
     try {
-      const rooms = await supabase(env,
-        "rooms?select=id,name,capacity,max_capacity,is_active&id=eq." + encodeURIComponent(roomId) + "&is_active=eq.true"
-      );
-      const room = rooms?.[0];
-      if (!room) return json({ok:false,error:"اتاق انتخاب‌شده فعال نیست."},404);
-      const maxCapacity = Number(room.max_capacity || room.capacity || 0);
-      if (maxCapacity > 0 && adults + children > maxCapacity) {
-        return json({ok:false,error:"تعداد بزرگسالان و کودکان از ظرفیت اتاق بیشتر است."},400);
-      }
-
-      let guests = await supabase(env,
-        "guests?select=id&phone=eq." + encodeURIComponent(phone) + "&limit=1"
-      );
-      let guest = guests?.[0];
-      if (!guest) {
-        const created = await supabase(env,"guests",{
-          method:"POST",
-          headers:{"Prefer":"return=representation"},
-          body:JSON.stringify({full_name:fullName,phone})
-        });
-        guest = created?.[0];
-      } else {
-        await supabase(env,"guests?id=eq."+encodeURIComponent(guest.id),{
-          method:"PATCH", headers:{"Prefer":"return=minimal"},
-          body:JSON.stringify({full_name:fullName})
-        });
-      }
-      if (!guest?.id) throw new Error("GUEST_CREATE_FAILED");
-
-      const pricingRules = await getPricingRules(env);
-      const quote = calculateStayPrice(pricingRules, room.id, checkIn, checkOut);
-      const reservation = await supabase(env,"reservations",{
-        method:"POST",
-        headers:{"Prefer":"return=representation"},
-        body:JSON.stringify({
-          guest_id:guest.id, room_id:room.id,
-          check_in:checkIn, check_out:checkOut,
-          adults, children, infants,
-          total_amount:quote ? quote.total : 0, deposit_amount:0, paid_amount:0,
-          status:"pending",
-          booking_source:"سایت بوم‌گردی مهران",
-          notes:[ "درخواست ثبت‌شده از سایت عمومی", notes, quote ? "مبلغ براساس تعرفه‌های ثبت‌شده محاسبه شد." : "مبلغ پس از بررسی مدیریت اعلام می‌شود." ].filter(Boolean).join(" | ")
-        })
-      });
-      const saved = reservation?.[0];
-
-      // SMS delivery is best-effort: a provider/network failure must never undo a saved booking.
-      if (saved?.id && env.MELIPAYAMAK_API_URL && env.MELIPAYAMAK_FROM) {
-        const trackingCode = saved.id.slice(-8).toUpperCase();
-        const guestMessage = `بوم‌گردی مهران
-درخواست رزرو شما ثبت شد و در انتظار تأیید مدیریت است.
-اتاق: ${room.name}
-ورود: ${checkIn}
-خروج: ${checkOut}
-کد پیگیری: ${trackingCode}`;
-
-        const smsJobs = [
-          sendMelipayamakSms(env, phone, guestMessage)
-        ];
-
-        const adminPhone = normalizePhone(env.MELIPAYAMAK_ADMIN_PHONE || "");
-        if (adminPhone.length === 11 && adminPhone.startsWith("09") && /^[0-9]+$/.test(adminPhone)) {
-          const adminMessage = `بوم‌گردی مهران
-درخواست رزرو جدید
-مهمان: ${fullName}
-موبایل: ${phone}
-اتاق: ${room.name}
-ورود: ${checkIn}
-خروج: ${checkOut}
-کد پیگیری: ${trackingCode}`;
-          smsJobs.push(sendMelipayamakSms(env, adminPhone, adminMessage));
-        }
-
-        const smsResults = await Promise.allSettled(smsJobs);
-        console.log("BOOKING_SMS_RESULT", smsResults.map(item =>
-          item.status === "fulfilled" ? item.value : {ok:false,reason:"UNEXPECTED_ERROR"}
-        ));
-      }
-
-      return json({
-        ok:true,
-        message:"درخواست شما ثبت شد و پس از بررسی مدیر با شما تماس گرفته می‌شود.",
-        tracking_code:saved?.id ? saved.id.slice(-8).toUpperCase() : null,
-        status:"pending"
-      },201);
-    } catch (error) {
-      if (error.code === "23P01" || error.code === "23505") {
-        return json({ok:false,error:"این اتاق در بازه انتخابی قبلاً رزرو شده است. لطفاً اتاق یا تاریخ دیگری انتخاب کنید."},409);
-      }
-      return json({ok:false,error:"ثبت درخواست انجام نشد. لطفاً چند لحظه دیگر دوباره تلاش کنید."},500);
+      const rules=await getPricingRules(env);
+      const rows=selections.map(x=>({room_id:x.room_id,adults:x.adults,children:x.children,infants:x.infants,total_amount:calculateStayPrice(rules,x.room_id,checkIn,checkOut)?.total??0,deposit_amount:0}));
+      const saved=await supabase(env,"rpc/create_multi_room_booking",{method:"POST",body:JSON.stringify({p_name:fullName,p_phone:phone,p_type:type,p_org:org,p_national_id:nationalId,p_birth:birth,p_in:checkIn,p_out:checkOut,p_source:"سایت بوم‌گردی مهران",p_notes:String(body.notes||"").trim().slice(0,1000),p_rooms:rows})});
+      return json({ok:true,bookings:saved,tracking_code:saved?.[0]?.tracking_code,status:"pending"},201);
+    } catch(error) {
+      if(error.code==="23P01") return json({ok:false,error:"یکی از اتاق‌ها قبلاً رزرو شده است؛ هیچ رزروی ثبت نشد."},409);
+      if(error.code==="PGRST202") return json({ok:false,error:"به‌روزرسانی دیتابیس هنوز نصب نشده است."},503);
+      if(error.code==="P0001") return json({ok:false,error:"مشخصات، ظرفیت یا مبلغ رزرو معتبر نیست."},400);
+      return json({ok:false,error:"ثبت درخواست انجام نشد."},500);
     }
   }
   return json({ok:false,error:"مسیر API پیدا نشد."},404);
