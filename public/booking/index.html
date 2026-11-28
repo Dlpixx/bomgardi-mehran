@@ -81,7 +81,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.secondary{background:#eee5da;col
 <section id="success" class="card">
 <h1>درخواست شما ثبت شد 🌿</h1>
 <p>درخواست رزرو با موفقیت دریافت شد و در انتظار بررسی مدیریت است.</p>
-<div class="muted">کد پیگیری هر اتاق</div><div id="trackingCode" class="code"></div>
+<div class="muted">کد پیگیری رزرو</div><div id="trackingCode" class="code"></div>
 <p class="muted">کد پیگیری را نگه دارید. پس از تأیید رزرو توسط مدیریت، با شماره موبایل ثبت‌شده و همین کد پیگیری می‌توانید وارد پنل مهمان شوید.</p>
 <div class="actions" style="justify-content:center;margin-top:14px"><a class="button" href="/guest/">ورود مهمان</a><a class="button secondary" href="/">بازگشت به سایت</a></div>
 </section>
@@ -163,7 +163,7 @@ $('bookingForm').addEventListener('submit',async e=>{
   if(!$('consent').checked)throw new Error('برای ارسال درخواست، موافقت خود را ثبت کنید.');
   const r=await fetch('/api/bookings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'ثبت درخواست انجام نشد.');
-  $('bookingForm').style.display='none';$('success').style.display='block';$('trackingCode').textContent=(data.bookings||[]).map(x=>x.room_name+' : '+x.tracking_code).join(' | ')||data.tracking_code||'ثبت شد';
+  $('bookingForm').style.display='none';$('success').style.display='block';$('trackingCode').textContent=data.tracking_code||'ثبت شد';
  }catch(err){showMessage(err.message);}
  finally{$('submitBtn').disabled=false;$('submitBtn').textContent='ثبت درخواست رزرو';}
 });

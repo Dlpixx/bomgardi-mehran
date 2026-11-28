@@ -716,13 +716,13 @@ async function loadReservations(){
   }
  }
 
- document.getElementById('total').textContent=cachedReservations.filter(r=>r.status!=='cancelled').length;
+ document.getElementById('total').textContent=groupedRows(cachedReservations.filter(r=>r.status!=='cancelled')).length;
  renderRoomStatus();
  renderReservationList();
  if(!document.getElementById('calendar').classList.contains('hidden')) renderOccupancyCalendar();
  if(!document.getElementById('reports').classList.contains('hidden')) renderSourceReport();
  renderDailyOperations();
- const recent=cachedReservations.slice(0,5);
+ const recent=groupedRows(cachedReservations).slice(0,5);
  recentEl.innerHTML=recent.length?recent.map(r=>reservationCard(r,false)).join(''):'هنوز رزروی ثبت نشده است.';
 }
 // تقویم ماهانه شمسی برای نمایش اشغال ۹ اتاق
@@ -775,7 +775,12 @@ function showCalendarReservation(id){
  alert(`مهمان: ${r.guests?.full_name||'—'}\nاتاق: ${room?.name||'—'}\nورود: ${formatJalaliDate(r.check_in)}\nخروج: ${formatJalaliDate(r.check_out)}\nوضعیت: ${names[r.status]||r.status}\nموبایل: ${r.guests?.phone||'—'}\nمنبع رزرو: ${r.booking_source||'ثبت نشده'}`);
 }
 
+function groupMembers(r){return r.booking_group_id?cachedReservations.filter(x=>x.booking_group_id===r.booking_group_id):[r];}
+function groupCode(r){return String(r.booking_group_id||r.id).slice(-8).toUpperCase();}
+function groupedRows(rows){const seen=new Set();return rows.filter(r=>{const k=r.booking_group_id||r.id;if(seen.has(k))return false;seen.add(k);return true;});}
+function aggregateBooking(r){const members=groupMembers(r);const sum=k=>members.reduce((n,x)=>n+Number(x[k]||0),0);return {...r,rooms:{name:members.map(x=>x.rooms?.name||'اتاق').join('، ')},total_amount:sum('total_amount'),paid_amount:sum('paid_amount'),deposit_amount:sum('deposit_amount'),reservation_payments:members.flatMap(x=>x.reservation_payments||[]),status:members.every(x=>x.status===r.status)?r.status:members.some(x=>x.status==='pending')?'pending':'mixed'};}
 function reservationCard(r,actions=true){
+ const members=groupMembers(r);r=aggregateBooking(r);
  const names={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'};
  const remaining=Math.max(0,Number(r.total_amount||0)-Number(r.paid_amount||0));
  const paymentHistory=(r.reservation_payments||[]).slice().sort((a,b)=>String(b.confirmed_at||'').localeCompare(String(a.confirmed_at||''))).map(p=>{
@@ -785,14 +790,16 @@ function reservationCard(r,actions=true){
  return `<div class="reservation">
   <b>${escapeHtml(r.identity?.organization||r.identity?.contact_name||r.guests?.full_name||'مهمان')}</b>
   <div>${escapeHtml(r.rooms?.name||'اتاق')} | ${formatJalaliDate(r.check_in)} تا ${formatJalaliDate(r.check_out)}</div>
+  <div class="muted">کد پیگیری: ${groupCode(r)}</div>
+  ${members.length>1?members.map(x=>'<div>'+escapeHtml(x.rooms?.name||'اتاق')+' · '+(Number(x.adults||0)+Number(x.children||0)+Number(x.infants||0))+' نفر · '+Number(x.total_amount||0).toLocaleString('fa-IR')+' تومان</div>').join(''):''}
   <div class="muted">موبایل: ${escapeHtml(r.guests?.phone||'—')} | وضعیت: ${names[r.status]||escapeHtml(r.status)}</div>
   <div class="muted">منبع رزرو: ${escapeHtml(r.booking_source||'ثبت نشده')}</div>
   <div class="money-line">کل: ${Number(r.total_amount||0).toLocaleString('en-US')} تومان | پرداختی: ${Number(r.paid_amount||0).toLocaleString('en-US')} تومان | مانده: ${remaining.toLocaleString('en-US')} تومان</div>
   ${paymentHistory?`<div class="payment-history">${paymentHistory}</div>`:''}
   ${(r.status==='pending'||(actions&&r.status!=='cancelled'))?`<div class="action-row">
    ${r.status==='pending'?`<button class="approve" onclick="confirmReservation('${r.id}')">تأیید رزرو</button>`:''}
-   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="openEditModal('${r.id}')">ویرایش</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
-   ${actions&&r.status!=='cancelled'&&remaining>0?`<button class="secondary" onclick="addPayment('${r.id}')">تأیید و ثبت واریزی</button>`:''}
+   ${actions&&!['cancelled','checked_out'].includes(r.status)?`<button onclick="chooseGroupRoom('${r.id}','edit')">ویرایش</button><button class="danger" onclick="cancelReservation('${r.id}')">لغو رزرو</button>`:''}
+   ${actions&&r.status!=='cancelled'&&remaining>0?`<button class="secondary" onclick="chooseGroupRoom('${r.id}','payment')">تأیید و ثبت واریزی</button>`:''}
    ${actions&&r.status!=='cancelled'?`<button class="secondary" onclick="printInvoice('${r.id}')">فاکتور / رسید</button>`:''}
    ${actions&&['confirmed','checked_in','checked_out'].includes(r.status)?`<button class="secondary" onclick="prepareWelcomeMessage('${r.id}')">آماده‌سازی پیامک خوشامدگویی</button>`:''}
    ${actions&&r.status!=='cancelled'&&r.review_token&&(r.status==='checked_out'||r.check_out<todayISO())?`<button class="secondary" onclick="copyReviewLink('${r.id}')">لینک رضایت مهمان</button>`:''}
@@ -802,7 +809,7 @@ function reservationCard(r,actions=true){
 
 function renderDailyOperations(){
  const today=todayISO();
- const active=cachedReservations.filter(r=>r.status!=='cancelled');
+ const active=groupedRows(cachedReservations.filter(r=>r.status!=='cancelled')).map(aggregateBooking);
  const arrivals=active.filter(r=>r.check_in===today&&r.status!=='checked_out');
  const departures=active.filter(r=>r.check_out===today&&r.status!=='checked_out');
  const staying=active.filter(r=>r.status==='checked_in'&&r.check_in<=today&&r.check_out>today);
@@ -829,18 +836,18 @@ async function updateStayStatus(id,status){
  const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
  const label=status==='checked_in'?'ورود مهمان':'خروج مهمان';
  if(!confirm(label+' '+(r.guests?.full_name||'')+' ثبت شود؟'))return;
- const {error}=await db.from('reservations').update({status}).eq('id',id);
+ const {error}=await db.from('reservations').update({status}).in('id',groupMembers(r).map(x=>x.id)).neq('status','cancelled');
  if(error){alert('خطا در تغییر وضعیت: '+error.message);return;}
  await loadReservations();
 }
 function printInvoice(id){
- const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
+ const original=cachedReservations.find(x=>String(x.id)===String(id));if(!original)return;const members=groupMembers(original),r=aggregateBooking(original);
  const w=window.open('','_blank');
  if(!w){alert('برای چاپ فاکتور، اجازه باز شدن پنجره جدید را فعال کنید.');return;}
  const total=Number(r.total_amount||0),paid=Number(r.paid_amount||0),deposit=Number(r.deposit_amount||0),balance=Math.max(0,total-paid);
  const status={pending:'در انتظار تأیید',confirmed:'تأیید شده',checked_in:'مهمان مقیم',checked_out:'تسویه و خروج',cancelled:'لغو شده'}[r.status]||r.status;
  const money=n=>Number(n).toLocaleString('fa-IR')+' تومان';
- const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>فاکتور بوم‌گردی مهران</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#35271e;margin:0;padding:28px;line-height:2;text-align:center}.sheet{max-width:760px;margin:auto;border:1px solid #ddd1c3;padding:28px;border-radius:16px;text-align:center}.head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;border-bottom:2px solid #80502e;padding-bottom:16px}.brand{font-size:24px;color:#56351f;font-weight:bold}.muted{color:#806d5d;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}.item{background:#f7f3ec;padding:12px;border-radius:9px;text-align:center}.label{font-size:11px;color:#806d5d}.value{font-weight:bold}.money{width:100%;border-collapse:collapse;margin-top:20px}.money td{padding:12px;border-bottom:1px solid #eee;text-align:center}.money tr:last-child{font-weight:bold;color:#56351f;font-size:18px}.foot{margin-top:30px;text-align:center;color:#806d5d;font-size:12px}@media print{body{padding:0}.sheet{border:0;border-radius:0}}</style></head><body><div class="sheet"><div class="head"><div><div class="brand">بوم‌گردی مهران</div><div class="muted">فاکتور / رسید اقامت</div></div><div class="muted">تاریخ صدور: '+escapeHtml(formatJalaliDate(todayISO()))+'<br>وضعیت: '+escapeHtml(status)+'</div></div><div class="grid"><div class="item"><div class="label">نام مهمان</div><div class="value">'+escapeHtml(r.identity?.organization||r.identity?.contact_name||r.guests?.full_name||'—')+'</div></div><div class="item"><div class="label">شماره تماس</div><div class="value">'+escapeHtml(r.guests?.phone||'—')+'</div></div><div class="item"><div class="label">اتاق</div><div class="value">'+escapeHtml(r.rooms?.name||'—')+'</div></div><div class="item"><div class="label">منبع رزرو</div><div class="value">'+escapeHtml(r.booking_source||'ثبت نشده')+'</div></div><div class="item"><div class="label">تاریخ ورود</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_in))+'</div></div><div class="item"><div class="label">تاریخ خروج</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_out))+'</div></div></div><table class="money"><tr><td>مبلغ کل اقامت</td><td>'+money(total)+'</td></tr><tr><td>بیعانه ثبت‌شده</td><td>'+money(deposit)+'</td></tr><tr><td>مجموع پرداختی</td><td>'+money(paid)+'</td></tr><tr><td>مانده قابل پرداخت</td><td>'+money(balance)+'</td></tr></table><div style="margin:18px auto;break-inside:avoid"><img src="'+location.origin+'/assets/mehran-stamp.png" alt="مهر بوم‌گردی مهران" width="125" height="125" style="object-fit:contain"></div><div class="foot">از انتخاب بوم‌گردی مهران سپاسگزاریم 🌿<br>این رسید بر اساس اطلاعات ثبت‌شده در سامانه صادر شده است.</div></div><script>window.onload=()=>window.print()<\/script></body></html>';
+ const html='<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>فاکتور بوم‌گردی مهران</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#35271e;margin:0;padding:28px;line-height:2;text-align:center}.sheet{max-width:760px;margin:auto;border:1px solid #ddd1c3;padding:28px;border-radius:16px;text-align:center}.head{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;border-bottom:2px solid #80502e;padding-bottom:16px}.brand{font-size:24px;color:#56351f;font-weight:bold}.muted{color:#806d5d;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}.item{background:#f7f3ec;padding:12px;border-radius:9px;text-align:center}.label{font-size:11px;color:#806d5d}.value{font-weight:bold}.money{width:100%;border-collapse:collapse;margin-top:20px}.money td{padding:12px;border-bottom:1px solid #eee;text-align:center}.money tr:last-child{font-weight:bold;color:#56351f;font-size:18px}.foot{margin-top:30px;text-align:center;color:#806d5d;font-size:12px}@media print{body{padding:0}.sheet{border:0;border-radius:0}}</style></head><body><div class="sheet"><div class="head"><div><div class="brand">بوم‌گردی مهران</div><div class="muted">فاکتور / رسید اقامت</div></div><div class="muted">تاریخ صدور: '+escapeHtml(formatJalaliDate(todayISO()))+'<br>وضعیت: '+escapeHtml(status)+'</div></div><div class="grid"><div class="item"><div class="label">نام مهمان</div><div class="value">'+escapeHtml(r.identity?.organization||r.identity?.contact_name||r.guests?.full_name||'—')+'</div></div><div class="item"><div class="label">شماره تماس</div><div class="value">'+escapeHtml(r.guests?.phone||'—')+'</div></div><div class="item"><div class="label">اتاق</div><div class="value">'+escapeHtml(r.rooms?.name||'—')+'</div></div><div class="item"><div class="label">منبع رزرو</div><div class="value">'+escapeHtml(r.booking_source||'ثبت نشده')+'</div></div><div class="item"><div class="label">تاریخ ورود</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_in))+'</div></div><div class="item"><div class="label">تاریخ خروج</div><div class="value">'+escapeHtml(formatJalaliDate(r.check_out))+'</div></div></div><div>کد پیگیری: '+groupCode(r)+'</div><table class="money"><tr><th>اتاق</th><th>بزرگسال / کودک / نوزاد</th><th>میانگین مبلغ هر نفر (کل اقامت)</th><th>مبلغ اتاق</th></tr>'+members.map(x=>{const n=Number(x.adults||0)+Number(x.children||0)+Number(x.infants||0);return '<tr><td>'+escapeHtml(x.rooms?.name||'اتاق')+'</td><td>'+[x.adults||0,x.children||0,x.infants||0].join(' / ')+'</td><td>'+money(n?Math.round(Number(x.total_amount||0)/n):0)+'</td><td>'+money(x.total_amount||0)+'</td></tr>';}).join('')+'</table><div>جمع نفرات: '+members.reduce((n,x)=>n+Number(x.adults||0)+Number(x.children||0)+Number(x.infants||0),0)+'</div><table class="money"><tr><td>مبلغ کل اقامت</td><td>'+money(total)+'</td></tr><tr><td>بیعانه ثبت‌شده</td><td>'+money(deposit)+'</td></tr><tr><td>مجموع پرداختی</td><td>'+money(paid)+'</td></tr><tr><td>مانده قابل پرداخت</td><td>'+money(balance)+'</td></tr></table><div style="margin:18px auto;break-inside:avoid"><img src="'+location.origin+'/assets/mehran-stamp.png" alt="مهر بوم‌گردی مهران" width="125" height="125" style="object-fit:contain"></div><div class="foot">از انتخاب بوم‌گردی مهران سپاسگزاریم 🌿<br>این رسید بر اساس اطلاعات ثبت‌شده در سامانه صادر شده است.</div></div><script>window.onload=()=>window.print()<\/script></body></html>';
  w.document.open();w.document.write(html);w.document.close();
 }
 async function copyReviewLink(id){
@@ -1052,8 +1059,9 @@ function renderReservationList(){
   const hay=[r.guests?.full_name,r.guests?.phone,r.rooms?.name,r.booking_source,r.status,r.check_in,r.check_out].join(' ').toLocaleLowerCase();
   return hay.includes(q);
  });
- box.innerHTML=filtered.length?filtered.map(r=>reservationCard(r,true)).join(''):'رزروی با این مشخصات پیدا نشد.';
+ box.innerHTML=filtered.length?groupedRows(filtered).map(r=>reservationCard(r,true)).join(''):'رزروی با این مشخصات پیدا نشد.';
 }
+function chooseGroupRoom(id,kind){const r=cachedReservations.find(x=>x.id===id);if(!r)return;const list=groupMembers(r);let chosen=r;if(list.length>1){const answer=prompt('شماره اتاق مورد نظر را انتخاب کنید:\n'+list.map((x,i)=>(i+1)+' - '+x.rooms?.name).join('\n'));if(answer===null)return;chosen=list[Number(answer)-1];if(!chosen)return;}if(kind==='edit')openEditModal(chosen.id);else addPayment(chosen.id);}
 function openEditModal(id){
  const r=cachedReservations.find(x=>String(x.id)===String(id));if(!r)return;
  document.getElementById('editReservationId').value=r.id;
@@ -1091,20 +1099,10 @@ async function saveReservationEdit(){
  closeEditModal();await loadReservations();alert('تغییرات رزرو ذخیره شد.');
 }
 async function confirmReservation(id){
- const r=cachedReservations.find(x=>String(x.id)===String(id));
- if(!r||r.status!=='pending')return;
- const ok=confirm(`درخواست رزرو ${r.guests?.full_name||'مهمان'} برای اتاق ${r.rooms?.name||'انتخاب‌شده'} تأیید شود؟\nاتاق پس از تأیید برای همین بازه رزرو باقی می‌ماند.`);
- if(!ok)return;
- const {data,error}=await db.from('reservations')
-  .update({status:'confirmed'})
-  .eq('id',id)
-  .eq('status','pending')
-  .select('id')
-  .maybeSingle();
- if(error){alert('خطا در تأیید رزرو: '+error.message);return;}
- if(!data){alert('وضعیت این رزرو تغییر کرده یا قبلاً تأیید شده است. فهرست به‌روزرسانی می‌شود.');await loadReservations();return;}
- await loadReservations();
- alert('رزرو با موفقیت تأیید شد. اتاق برای این بازه همچنان مسدود است.');
+ const r=cachedReservations.find(x=>x.id===id);if(!r)return;const list=groupMembers(r);
+ if(!confirm('تمام '+list.length+' اتاق این رزرو تأیید شود؟'))return;
+ const {error}=await db.from('reservations').update({status:'confirmed'}).in('id',list.map(x=>x.id)).eq('status','pending');
+ if(error){alert(error.message);return;}await loadReservations();
 }
 
 async function prepareWelcomeMessage(id){
@@ -1114,7 +1112,7 @@ async function prepareWelcomeMessage(id){
  }
  const guestName=String(r.guests?.full_name||'مهمان گرامی').trim();
  const phone=String(r.guests?.phone||'').trim();
- const trackingCode=String(r.id).slice(-8).toUpperCase();
+ const trackingCode=groupCode(r);
  const guestUrl=location.origin+'/guest/';
  const message='سلام '+guestName+' عزیز 🌿\n'+
   'خیلی خوش اومدید به بوم‌گردی مهران.\n'+
@@ -1175,7 +1173,7 @@ document.getElementById('bookingForm').addEventListener('submit',async e=>{
  msg.textContent='در حال ثبت رزرو...';
  const {data,error}=await db.rpc('create_multi_room_booking',{p_name:val('guestName'),p_phone:phone,p_type:val('customerType'),p_org:val('organization'),p_national_id:national,p_birth:birthISO,p_in:ci,p_out:co,p_source:val('bookingSource')||null,p_notes:val('notes'),p_rooms:rows});
  if(error)throw Error(error.code==='23P01'?'یکی از اتاق‌ها قبلاً رزرو شده است؛ هیچ رزروی ثبت نشد.':error.code==='PGRST202'?'ابتدا فایل SQL جدید را در Supabase اجرا کنید.':'ثبت رزرو انجام نشد؛ مشخصات و ظرفیت را بررسی کنید.');
- e.target.reset();document.getElementById('orgField').hidden=true;document.getElementById('organization').required=false;renderMultiRooms();await loadReservations();msg.textContent='رزرو ثبت شد: '+(data||[]).map(r=>r.room_name+' '+r.tracking_code).join(' | ');
+ e.target.reset();document.getElementById('orgField').hidden=true;document.getElementById('organization').required=false;renderMultiRooms();await loadReservations();msg.textContent='رزرو ثبت شد: '+(data?.[0]?.tracking_code||'ثبت شد');
  }catch(error){msg.textContent=error.message;}finally{button.disabled=false;}
 });
 
@@ -1190,7 +1188,7 @@ async function cancelReservation(id){
  const {error}=await db
  .from('reservations')
  .update({status:'cancelled'})
- .eq('id',id);
+ .in('id',groupMembers(cachedReservations.find(x=>x.id===id)).map(x=>x.id));
 
  if(error){
  alert('خطا در لغو رزرو: '+error.message);

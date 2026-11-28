@@ -242,37 +242,38 @@ async function handleApi(request, env, url) {
       }
 
       const reservations = await supabase(env,
-        "reservations?select=id,check_in,check_out,status,adults,children,infants,total_amount,deposit_amount,paid_amount,rooms(name)&guest_id=eq." +
+        "reservations?select=id,booking_group_id,check_in,check_out,status,adults,children,infants,total_amount,deposit_amount,paid_amount,rooms(name)&guest_id=eq." +
         encodeURIComponent(guest.id) + "&order=created_at.desc&limit=1000"
       );
       const reservation = (reservations || []).find(item =>
-        String(item.id || "").slice(-8).toUpperCase() === trackingCode
+        String(item.booking_group_id || item.id || "").slice(-8).toUpperCase() === trackingCode
       );
 
       if (!reservation) {
         return json({ok:false,error:"اطلاعات ورود صحیح نیست یا رزرو پیدا نشد."},401);
       }
 
-      if (!["confirmed","checked_in","checked_out"].includes(reservation.status)) {
+      const members=reservation.booking_group_id?reservations.filter(x=>x.booking_group_id===reservation.booking_group_id):[reservation];
+      if (!members.every(x=>["confirmed","checked_in","checked_out"].includes(x.status))) {
         return json({ok:false,error:"ورود مهمان پس از تأیید رزرو توسط مدیریت فعال می‌شود."},403);
       }
 
-      const total = Number(reservation.total_amount || 0);
-      const paid = Number(reservation.paid_amount || 0);
+      const sum=k=>members.reduce((n,x)=>n+Number(x[k]||0),0);
+      const total=sum("total_amount"),paid=sum("paid_amount");
       return json({
         ok:true,
         guest:{full_name:guest.full_name || "مهمان گرامی",phone},
         reservation:{
           tracking_code:trackingCode,
-          room_name:reservation.rooms?.name || "اتاق",
+          room_name:members.map(x=>x.rooms?.name||"اتاق").join("، "),
           check_in:reservation.check_in,
           check_out:reservation.check_out,
           status:reservation.status,
-          adults:Number(reservation.adults || 0),
-          children:Number(reservation.children || 0),
-          infants:Number(reservation.infants || 0),
+          adults:sum("adults"),
+          children:sum("children"),
+          infants:sum("infants"),
           total_amount:total,
-          deposit_amount:Number(reservation.deposit_amount || 0),
+          deposit_amount:sum("deposit_amount"),
           paid_amount:paid,
           remaining_amount:Math.max(0,total-paid)
         }
