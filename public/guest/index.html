@@ -64,6 +64,8 @@ footer{text-align:center;padding:18px;color:var(--muted);font-size:12px}
 .stay-room{font-size:23px;margin:14px 0;color:#56351f}.stay-stats{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #eee4d8;padding-top:12px;gap:12px}.stay-stats>div{background:#f7f3ec;padding:12px;border-radius:14px}.stay-stats small,.stay-stats strong{display:block}.stay-stats small{font-size:12px;color:#806d5d}.stay-stats strong{font-size:18px;color:#56351f}.stay-card details{margin-top:14px}.stay-card summary{cursor:pointer;color:#80502e;font-size:13px}
 .concierge-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.concierge-tile{width:100%;min-width:0;min-height:98px;display:flex!important;flex-direction:column;gap:8px;padding:12px 5px;border:1px solid #e6d6c4;border-radius:18px;background:#fff!important;color:#56351f!important;box-shadow:0 4px 12px #35271e12;font-size:12px;line-height:1.6}.concierge-tile svg{width:29px;height:29px;color:#80502e}.concierge-tile:hover,.concierge-tile:focus-visible{background:#f4e7d5!important;outline:2px solid #c8a77e}.concierge-tile[aria-expanded=true]{background:#f1dfc6!important}.feature-panel p{font-size:14px}.feature-heading button{padding:6px 12px;font-size:12px}.guest-signoff{background:#56351f;color:white;padding:16px;border-radius:18px;margin:14px 0;font-weight:bold}.contact-options{display:flex;flex-direction:column;gap:8px}.contact-options a{overflow-wrap:anywhere}
 #guestPanel [hidden]{display:none!important}@media(max-width:360px){.concierge-grid{gap:6px}.concierge-tile{font-size:11px;min-height:90px}}
+</style><style>
+.breakfast-menu{display:grid;gap:10px;margin:14px 0}.breakfast-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #e5d5c2;border-radius:17px;padding:13px;background:#fffaf3}.breakfast-info{flex:1;min-width:0;display:grid;gap:5px}.breakfast-info small{font-size:12px;color:#806d5d;line-height:1.8}.breakfast-info span{color:#80502e;font-weight:bold;font-size:13px}.breakfast-step{display:flex;align-items:center;gap:6px;flex:none;direction:ltr}.breakfast-step button{width:34px;height:34px;padding:0!important;border-radius:10px;font-size:20px}.breakfast-step output{min-width:24px;font-weight:bold}.breakfast-total{background:#f0e3d0;border-radius:15px;padding:15px;margin:12px 0}.breakfast-total strong{display:block;font-size:20px;color:#56351f}.breakfast-message{width:100%;box-sizing:border-box;resize:vertical;border:1px solid #ded2c5;border-radius:14px;padding:12px;font:inherit;line-height:1.8;margin-bottom:10px}.breakfast-sms[aria-disabled=true],.breakfast-copy:disabled{opacity:.5;pointer-events:none}@media(max-width:360px){.breakfast-item{flex-direction:column}}
 </style></head>
 <body>
 <header class="site-header">
@@ -188,6 +190,42 @@ async function copyBankValue(value,button){
  setTimeout(()=>button.textContent=original,1800);
 }
 function closeFeatures(){ $('featurePanel').hidden=true;$('billingPanel').hidden=true;document.querySelectorAll('.concierge-tile').forEach(b=>b.setAttribute('aria-expanded','false'));$('featureContent').replaceChildren(); }
+const BREAKFAST_MENU=[
+ ['نیمرو ساده',200000,''],['املت ساده',240000,''],['املت مخصوص',280000,''],
+ ['سینی ایرانی ۲ آیتم',200000,'پنیر و خیار سبز و گوجه، کره و مربا'],
+ ['سینی ایرانی ۳ آیتم',300000,'پنیر و خیار سبز و گوجه، کره و مربا، حلوا ارده'],
+ ['سینی ایرانی ۴ آیتم',400000,'پنیر و خیار سبز و گوجه، کره و مربا، حلوا ارده، ارده'],
+ ['چای (برای دو نفر)',150000,'']
+];
+function renderBreakfast(){
+ const host=$('featureContent'), quantities=BREAKFAST_MENU.map(()=>0), phone='09135132005';
+ $('featureTitle').textContent='منوی صبحانه مهران';
+ host.innerHTML='<p>صبح دل‌انگیز خود را با صبحانه مهران آغاز کنید ☀️</p><div class="breakfast-menu"></div><div class="breakfast-total">جمع سفارش: <strong></strong></div><p class="muted">سفارش پس از ارسال پیام و تأیید پذیرش قطعی می‌شود.</p><textarea class="breakfast-message" readonly aria-label="متن آماده سفارش" rows="9"></textarea><div class="contact-options"><button type="button" class="breakfast-copy">کپی متن سفارش</button><a class="button secondary breakfast-sms" aria-disabled="true">ارسال پیامک به پذیرش</a></div><p class="muted">شماره پذیرش: <bdi>'+phone+'</bdi></p>';
+ const menu=host.querySelector('.breakfast-menu'), message=host.querySelector('textarea'), copy=host.querySelector('.breakfast-copy'), sms=host.querySelector('.breakfast-sms');
+ const counts=[];
+ function refresh(){
+  counts.forEach((el,i)=>el.textContent=quantities[i].toLocaleString('fa-IR'));
+  const total=BREAKFAST_MENU.reduce((n,item,i)=>n+item[1]*quantities[i],0);
+  host.querySelector('.breakfast-total strong').textContent=money(total);
+  const lines=BREAKFAST_MENU.flatMap((item,i)=>quantities[i]?[item[0]+' × '+quantities[i].toLocaleString('fa-IR')+' — '+money(item[1]*quantities[i])]:[]);
+  message.value=lines.length?['سلام، لطفاً سفارش صبحانه زیر را بررسی و تأیید کنید.','نام مهمان: '+$('guestName').textContent,'اتاق اقامت: '+$('viewRoom').textContent,'شماره تماس: '+$('viewPhone').textContent,'کد پیگیری: '+$('viewTracking').textContent,'','اقلام سفارش:',...lines,'','جمع سفارش: '+money(total),'با تشکر'].join('\n'):'';
+  copy.disabled=!lines.length;sms.setAttribute('aria-disabled',String(!lines.length));
+  if(lines.length){const separator=/iPhone|iPad|iPod/.test(navigator.userAgent)?'&':'?';sms.href='sms:'+phone+separator+'body='+encodeURIComponent(message.value);}else sms.removeAttribute('href');
+ }
+ BREAKFAST_MENU.forEach((item,i)=>{
+  const row=document.createElement('div');row.className='breakfast-item';
+  const info=document.createElement('div');info.className='breakfast-info';
+  const title=document.createElement('strong');title.textContent=item[0];info.append(title);
+  if(item[2]){const desc=document.createElement('small');desc.textContent=item[2];info.append(desc);}
+  const price=document.createElement('span');price.textContent=money(item[1]);info.append(price);
+  const step=document.createElement('div');step.className='breakfast-step';
+  const minus=document.createElement('button'),count=document.createElement('output'),plus=document.createElement('button');
+  minus.type=plus.type='button';minus.textContent='−';plus.textContent='+';minus.setAttribute('aria-label','کاهش تعداد '+item[0]);plus.setAttribute('aria-label','افزایش تعداد '+item[0]);counts.push(count);
+  minus.onclick=()=>{quantities[i]=Math.max(0,quantities[i]-1);refresh();};plus.onclick=()=>{quantities[i]=Math.min(99,quantities[i]+1);refresh();};
+  step.append(plus,count,minus);row.append(info,step);menu.append(row);
+ });
+ copy.onclick=()=>{if(message.value)copyBankValue(message.value,copy);};refresh();
+}
 const featureInfo={
  food:['کافه و رستوران','برای اطلاع از منو و وضعیت سرو غذا و نوشیدنی با پذیرش هماهنگ کنید.'],
  breakfast:['صبحانه','برای اطلاع از ساعت سرو، منو و سفارش صبحانه با پذیرش هماهنگ کنید.'],
@@ -204,6 +242,7 @@ const featureInfo={
 document.querySelectorAll('.concierge-tile').forEach(btn=>{btn.setAttribute('aria-expanded','false');btn.addEventListener('click',()=>{
  closeFeatures();btn.setAttribute('aria-expanded','true');
  if(btn.dataset.feature==='billing'){$('billingPanel').hidden=false;$('billingPanel').focus({preventScroll:true});$('billingPanel').scrollIntoView({behavior:'smooth',block:'start'});return;}
+ if(btn.dataset.feature==='breakfast'){renderBreakfast();$('featurePanel').hidden=false;$('featurePanel').focus({preventScroll:true});$('featurePanel').scrollIntoView({behavior:'smooth',block:'start'});return;}
  const info=featureInfo[btn.dataset.feature];if(!info)return;
  $('featureTitle').textContent=info[0];const p=document.createElement('p');p.textContent=info[1];$('featureContent').append(p);
  const links=document.createElement('div');links.className='contact-options';
